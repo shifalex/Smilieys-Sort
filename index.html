@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Smiley Feature Sort</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app" aria-live="polite">
+      <header class="topbar">
+        <button class="back-button hidden" type="button" id="backButton" aria-label="Back to games">
+          <span aria-hidden="true"></span>
+        </button>
+        <div>
+          <p class="eyebrow">Decomposition sorting</p>
+          <h1>Smiley Feature Sort</h1>
+        </div>
+        <div class="progress" id="progressText">Choose mission</div>
+      </header>
+
+      <section class="setup-panel" id="setupPanel">
+        <div class="home-smileys" aria-hidden="true">
+          <span class="home-smiley home-smiley-one"></span>
+          <span class="home-smiley home-smiley-two"></span>
+          <span class="home-smiley home-smiley-three"></span>
+          <span class="home-smiley home-smiley-four"></span>
+        </div>
+        <div class="mission-panel" id="missionPanel">
+          <p class="home-greeting">Hey, we are in the smileys sorting game :)</p>
+          <h2>Choose mission</h2>
+          <div class="mode-panel" id="modePanel">
+            <h2>Use numbers?</h2>
+            <div class="mode-grid" aria-label="Choose number mode">
+              <button class="mode-choice numbers-mode" type="button" id="withNumbersButton" aria-label="With numbers">
+                <span class="number-sketch n-one" aria-hidden="true">1</span>
+                <span class="number-sketch n-two" aria-hidden="true">2</span>
+                <span class="number-sketch n-three" aria-hidden="true">3</span>
+              </button>
+              <button class="mode-choice icons-mode" type="button" id="withoutNumbersButton" aria-label="Without numbers">
+                <span class="choice-sketch sketch-face" aria-hidden="true"></span>
+                <span class="choice-sketch sketch-hat" aria-hidden="true"></span>
+                <span class="choice-sketch sketch-ears" aria-hidden="true"><span></span><span></span></span>
+              </button>
+            </div>
+          </div>
+          <div class="mission-grid" aria-label="Choose mission">
+            <button class="mission-choice feature-mission" type="button" id="featureMissionButton" aria-label="Feature sort">
+              <span class="choice-sketch sketch-face" aria-hidden="true"></span>
+              <span class="mission-word" aria-hidden="true">Feature sort</span>
+            </button>
+            <button class="mission-choice carroll-mission" type="button" id="carrollMissionButton" aria-label="Two feature sort">
+              <span class="carroll-sketch" aria-hidden="true">
+                <span></span><span></span><span></span><span></span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Two feature sort</span>
+            </button>
+            <button class="mission-choice venn-mission" type="button" id="vennMissionButton" aria-label="Three circle sort">
+              <span class="venn-sketch" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Three circle sort</span>
+            </button>
+            <button class="mission-choice implicit-mission" type="button" id="implicitMissionButton" aria-label="Find the rule">
+              <span class="implicit-sketch" aria-hidden="true">
+                <span></span><span></span><strong></strong>
+              </span>
+              <span class="mission-word" aria-hidden="true">Find the rule</span>
+            </button>
+            <button class="mission-choice ordering-mission" type="button" id="orderingMissionButton" aria-label="Ordering">
+              <span class="order-letter" aria-hidden="true">A</span>
+              <span class="order-arrow" aria-hidden="true"></span>
+              <span class="order-letter" aria-hidden="true">Z</span>
+              <span class="mission-word" aria-hidden="true">Ordering</span>
+            </button>
+          </div>
+        </div>
+        <div class="count-panel hidden" id="countPanel">
+          <h2>How many smileys?</h2>
+          <div class="count-grid" id="countGrid" aria-label="Choose number of smileys"></div>
+        </div>
+      </section>
+
+      <section class="work-panel hidden" id="workPanel">
+        <div class="tray-wrap">
+          <p class="tray-label" id="trayLabel">Smileys to sort</p>
+          <div class="smiley-tray" id="tray" data-zone="tray"></div>
+        </div>
+
+        <div class="sort-table" id="sortTable">
+          <div class="column-head with-feature" id="withHeader" aria-label="With the feature"></div>
+          <div class="column-head without-feature" id="withoutHeader" aria-label="Without the feature"></div>
+          <div class="drop-zone" id="withZone" data-zone="with" aria-label="Smileys with the feature"></div>
+          <div class="drop-zone" id="withoutZone" data-zone="without" aria-label="Smileys without the feature"></div>
+        </div>
+
+        <div class="ordering-panel hidden" id="orderingPanel">
+          <div class="ordering-head">
+            <h2>Order the smileys</h2>
+            <div class="criteria-list" id="criteriaList" aria-label="Ordering criteria"></div>
+          </div>
+          <div class="ordering-zone" id="orderingZone" data-zone="order" aria-label="Ordered smileys"></div>
+        </div>
+
+        <div class="carroll-panel hidden" id="carrollPanel">
+          <div class="carroll-table" id="carrollTable">
+            <div class="carroll-corner" aria-hidden="true"></div>
+            <div class="carroll-axis top-axis" id="carrollTopWith" aria-label="With first feature"></div>
+            <div class="carroll-axis top-axis" id="carrollTopWithout" aria-label="Without first feature"></div>
+            <div class="carroll-axis side-axis" id="carrollSideWith" aria-label="With second feature"></div>
+            <div class="carroll-zone" id="carrollWithWithZone" data-zone="carroll-with-with" aria-label="Smileys with both features"></div>
+            <div class="carroll-zone" id="carrollWithoutWithZone" data-zone="carroll-without-with" aria-label="Smileys without first feature and with second feature"></div>
+            <div class="carroll-axis side-axis" id="carrollSideWithout" aria-label="Without second feature"></div>
+            <div class="carroll-zone" id="carrollWithWithoutZone" data-zone="carroll-with-without" aria-label="Smileys with first feature and without second feature"></div>
+            <div class="carroll-zone" id="carrollWithoutWithoutZone" data-zone="carroll-without-without" aria-label="Smileys without either feature"></div>
+          </div>
+        </div>
+
+        <div class="venn-panel hidden" id="vennPanel">
+          <div class="venn-stage" id="vennStage" aria-label="Three circle sorting diagram">
+            <div class="venn-circle circle-a" aria-hidden="true">
+              <div class="venn-circle-head" id="vennAHead"></div>
+            </div>
+            <div class="venn-circle circle-b" aria-hidden="true">
+              <div class="venn-circle-head" id="vennBHead"></div>
+            </div>
+            <div class="venn-circle circle-c" aria-hidden="true">
+              <div class="venn-circle-head" id="vennCHead"></div>
+            </div>
+            <div class="venn-zone zone-a-only" id="vennAZone" data-zone="venn-a" aria-label="Only first feature"></div>
+            <div class="venn-zone zone-b-only" id="vennBZone" data-zone="venn-b" aria-label="Only second feature"></div>
+            <div class="venn-zone zone-c-only" id="vennCZone" data-zone="venn-c" aria-label="Only third feature"></div>
+            <div class="venn-zone zone-ab" id="vennABZone" data-zone="venn-ab" aria-label="First and second features"></div>
+            <div class="venn-zone zone-ac" id="vennACZone" data-zone="venn-ac" aria-label="First and third features"></div>
+            <div class="venn-zone zone-bc" id="vennBCZone" data-zone="venn-bc" aria-label="Second and third features"></div>
+            <div class="venn-zone zone-abc" id="vennABCZone" data-zone="venn-abc" aria-label="All three features"></div>
+            <div class="venn-zone zone-outside" id="vennOutsideZone" data-zone="venn-outside" aria-label="Outside all circles"></div>
+          </div>
+        </div>
+
+        <div class="implicit-panel hidden" id="implicitPanel">
+          <div class="implicit-stage" id="implicitStage" aria-label="Find the hidden circle rule">
+            <div class="implicit-circle implicit-circle-a" aria-hidden="true"></div>
+            <div class="implicit-circle implicit-circle-b" aria-hidden="true"></div>
+            <div class="implicit-zone implicit-zone-a" id="implicitAZone" data-zone="implicit-a" aria-label="First hidden circle only"></div>
+            <div class="implicit-zone implicit-zone-b" id="implicitBZone" data-zone="implicit-b" aria-label="Second hidden circle only"></div>
+            <div class="implicit-zone implicit-zone-ab" id="implicitABZone" data-zone="implicit-ab" aria-label="Both hidden circles"></div>
+            <div class="implicit-zone implicit-zone-outside" id="implicitOutsideZone" data-zone="implicit-outside" aria-label="Outside both hidden circles"></div>
+          </div>
+        </div>
+
+        <button class="primary-button submit-sort-button" type="button" id="submitSortButton">OK</button>
+
+        <form class="answer-panel hidden" id="answerPanel">
+          <h2>How many?</h2>
+          <div class="ppw-scheme" id="countScheme" aria-label="Counting scheme">
+            <label class="ppw-box whole-box">
+              <span>Whole</span>
+              <input id="wholeCountInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+            </label>
+            <label class="ppw-box part-box">
+              <span class="count-label" id="withCountLabel"></span>
+              <input id="withCountInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+            </label>
+            <label class="ppw-box part-box">
+              <span class="count-label" id="withoutCountLabel"></span>
+              <input id="withoutCountInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+            </label>
+          </div>
+          <button class="primary-button ppw-ok-button" type="submit">OK</button>
+        </form>
+      </section>
+    </main>
+
+    <div class="celebration hidden" id="celebration" aria-live="polite" aria-label="Correct cycle complete">
+      <span class="firework firework-one" aria-hidden="true"></span>
+      <span class="firework firework-two" aria-hidden="true"></span>
+      <span class="firework firework-three" aria-hidden="true"></span>
+      <span class="firework firework-four" aria-hidden="true"></span>
+    </div>
+
+    <template id="smileyTemplate">
+      <button class="smiley" type="button">
+        <span class="ear left-ear"></span>
+        <span class="ear right-ear"></span>
+        <span class="hat"></span>
+        <span class="eye left-eye"></span>
+        <span class="eye right-eye"></span>
+        <span class="mouth"></span>
+      </button>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
