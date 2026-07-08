@@ -3,8 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Smiley Feature Sort</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta name="theme-color" content="#2f6f9f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Smileys Sort">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>Smileys Sorting Game</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icons/icon-180.png">
+    <link rel="stylesheet" href="styles.css?v=select-instruction-line-20260708">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -13,10 +19,24 @@
           <span aria-hidden="true"></span>
         </button>
         <div>
-          <p class="eyebrow">Decomposition sorting</p>
-          <h1>Smiley Feature Sort</h1>
+          <p class="eyebrow hidden">Decomposition sorting</p>
+          <h1 id="screenTitle">Smileys Sorting Game</h1>
         </div>
-        <div class="progress" id="progressText">Choose mission</div>
+        <div class="top-actions">
+          <div class="progress hidden" id="progressText"></div>
+          <div class="mode-panel" id="modePanel" aria-label="Number mode">
+            <button class="mode-choice numbers-mode" type="button" id="withNumbersButton" aria-label="With numbers">
+              <span class="number-sketch n-one" aria-hidden="true">1</span>
+              <span class="number-sketch n-two" aria-hidden="true">2</span>
+              <span class="number-sketch n-three" aria-hidden="true">3</span>
+            </button>
+            <button class="mode-choice icons-mode" type="button" id="withoutNumbersButton" aria-label="Without numbers">
+              <span class="choice-sketch sketch-face" aria-hidden="true"></span>
+              <span class="choice-sketch sketch-hat" aria-hidden="true"></span>
+              <span class="choice-sketch sketch-ears" aria-hidden="true"><span></span><span></span></span>
+            </button>
+          </div>
+        </div>
       </header>
 
       <section class="setup-panel" id="setupPanel">
@@ -25,65 +45,89 @@
           <span class="home-smiley home-smiley-two"></span>
           <span class="home-smiley home-smiley-three"></span>
           <span class="home-smiley home-smiley-four"></span>
+          <span class="home-smiley home-smiley-five"></span>
+          <span class="home-smiley home-smiley-six"></span>
+          <span class="home-smiley home-smiley-seven"></span>
+          <span class="home-smiley home-smiley-eight"></span>
         </div>
         <div class="mission-panel" id="missionPanel">
-          <p class="home-greeting">Hey, we are in the smileys sorting game :)</p>
-          <h2>Choose mission</h2>
-          <div class="mode-panel" id="modePanel">
-            <h2>Use numbers?</h2>
-            <div class="mode-grid" aria-label="Choose number mode">
-              <button class="mode-choice numbers-mode" type="button" id="withNumbersButton" aria-label="With numbers">
-                <span class="number-sketch n-one" aria-hidden="true">1</span>
-                <span class="number-sketch n-two" aria-hidden="true">2</span>
-                <span class="number-sketch n-three" aria-hidden="true">3</span>
-              </button>
-              <button class="mode-choice icons-mode" type="button" id="withoutNumbersButton" aria-label="Without numbers">
-                <span class="choice-sketch sketch-face" aria-hidden="true"></span>
-                <span class="choice-sketch sketch-hat" aria-hidden="true"></span>
-                <span class="choice-sketch sketch-ears" aria-hidden="true"><span></span><span></span></span>
-              </button>
-            </div>
-          </div>
+          <p class="home-greeting hidden">Hey, we are in the smileys sorting game :)</p>
+          <h2 class="hidden">Choose mission</h2>
           <div class="mission-grid" aria-label="Choose mission">
-            <button class="mission-choice feature-mission" type="button" id="featureMissionButton" aria-label="Feature sort">
-              <span class="choice-sketch sketch-face" aria-hidden="true"></span>
-              <span class="mission-word" aria-hidden="true">Feature sort</span>
+            <button class="mission-choice feature-mission" type="button" id="featureMissionButton" aria-label="Feature Sort">
+              <span class="feature-sort-sketch" aria-hidden="true">
+                <span class="choice-sketch sketch-face"></span>
+                <span class="feature-square-hat"><span></span></span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Feature Sort</span>
             </button>
-            <button class="mission-choice carroll-mission" type="button" id="carrollMissionButton" aria-label="Two feature sort">
+            <button class="mission-choice carroll-mission" type="button" id="carrollMissionButton" aria-label="Two Feature Sort">
               <span class="carroll-sketch" aria-hidden="true">
                 <span></span><span></span><span></span><span></span>
               </span>
-              <span class="mission-word" aria-hidden="true">Two feature sort</span>
+              <span class="mission-word" aria-hidden="true">Two Feature Sort</span>
             </button>
-            <button class="mission-choice venn-mission" type="button" id="vennMissionButton" aria-label="Three circle sort">
+            <button class="mission-choice venn-mission" type="button" id="vennMissionButton" aria-label="Circle Sort">
               <span class="venn-sketch" aria-hidden="true">
-                <span></span><span></span><span></span>
+                <span></span><span></span>
               </span>
-              <span class="mission-word" aria-hidden="true">Three circle sort</span>
+              <span class="mission-word" aria-hidden="true">Circle Sort</span>
             </button>
-            <button class="mission-choice implicit-mission" type="button" id="implicitMissionButton" aria-label="Find the rule">
+            <button class="mission-choice selection-mission" type="button" id="selectionMissionButton" aria-label="Select from Venn">
+              <span class="selection-sketch" aria-hidden="true">
+                <span></span><span></span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Select</span>
+            </button>
+            <button class="mission-choice simple-compare-mission" type="button" id="simpleCompareMissionButton" aria-label="Easy Compare two smileys">
+              <span class="compare-sketch" aria-hidden="true">
+                <span></span><strong>V</strong><span></span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Easy Compare</span>
+            </button>
+            <button class="mission-choice compare-mission" type="button" id="compareMissionButton" aria-label="Compare two smileys">
+              <span class="compare-sketch" aria-hidden="true">
+                <span></span><strong>=</strong><span></span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Compare</span>
+            </button>
+            <button class="mission-choice creator-mission" type="button" id="creatorMissionButton" aria-label="Create smileys">
+              <span class="creator-sketch" aria-hidden="true">
+                <span></span><strong>+</strong>
+              </span>
+              <span class="mission-word" aria-hidden="true">Create</span>
+            </button>
+            <button class="mission-choice permutation-mission" type="button" id="permutationMissionButton" aria-label="Permutation Album">
+              <span class="album-sketch" aria-hidden="true">
+                <span></span><span></span><span></span><span></span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Album</span>
+            </button>
+            <button class="mission-choice implicit-mission" type="button" id="implicitMissionButton" aria-label="Find the Rule">
               <span class="implicit-sketch" aria-hidden="true">
-                <span></span><span></span><strong></strong>
+                <span>?</span><span>?</span>
               </span>
-              <span class="mission-word" aria-hidden="true">Find the rule</span>
+              <span class="mission-word" aria-hidden="true">Find the Rule</span>
             </button>
-            <button class="mission-choice ordering-mission" type="button" id="orderingMissionButton" aria-label="Ordering">
-              <span class="order-letter" aria-hidden="true">A</span>
-              <span class="order-arrow" aria-hidden="true"></span>
-              <span class="order-letter" aria-hidden="true">Z</span>
-              <span class="mission-word" aria-hidden="true">Ordering</span>
+            <button class="mission-choice ordering-mission" type="button" id="orderingMissionButton" aria-label="Order">
+              <span class="order-sketch" aria-hidden="true">
+                <span class="order-letter">A</span>
+                <span class="order-arrow"></span>
+                <span class="order-letter">Z</span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Order</span>
             </button>
           </div>
         </div>
         <div class="count-panel hidden" id="countPanel">
-          <h2>How many smileys?</h2>
+          <h2 class="hidden">How many smileys?</h2>
           <div class="count-grid" id="countGrid" aria-label="Choose number of smileys"></div>
         </div>
       </section>
 
       <section class="work-panel hidden" id="workPanel">
         <div class="tray-wrap">
-          <p class="tray-label" id="trayLabel">Smileys to sort</p>
+          <p class="tray-label" id="trayLabel">Smileys</p>
           <div class="smiley-tray" id="tray" data-zone="tray"></div>
         </div>
 
@@ -96,7 +140,7 @@
 
         <div class="ordering-panel hidden" id="orderingPanel">
           <div class="ordering-head">
-            <h2>Order the smileys</h2>
+            <h2 class="panel-title">Order</h2>
             <div class="criteria-list" id="criteriaList" aria-label="Ordering criteria"></div>
           </div>
           <div class="ordering-zone" id="orderingZone" data-zone="order" aria-label="Ordered smileys"></div>
@@ -116,7 +160,61 @@
           </div>
         </div>
 
+        <div class="compare-panel hidden" id="comparePanel">
+          <div class="compare-faces" id="compareFaces" aria-label="Smileys to compare"></div>
+          <div class="compare-drag-view" id="compareDragView">
+            <div class="compare-column-head compare-bank-head" aria-hidden="true"></div>
+            <div class="compare-column-head compare-symbol-head">=</div>
+            <div class="compare-column-head compare-symbol-head">&ne;</div>
+            <div class="criteria-bank" id="compareCriteriaBank" data-compare-zone="bank" aria-label="Criteria to compare"></div>
+            <div class="compare-columns">
+              <div class="compare-drop-zone" id="compareEqualZone" data-compare-zone="equal" aria-label="Equal criteria"></div>
+              <div class="compare-drop-zone" id="compareDifferentZone" data-compare-zone="different" aria-label="Different criteria"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="simple-compare-panel hidden" id="simpleComparePanel">
+          <div class="simple-compare-head">
+            <h2 class="panel-title">Easy Compare</h2>
+            <div class="simple-compare-faces" id="simpleCompareFaces" aria-label="Smileys to compare"></div>
+          </div>
+          <div class="simple-compare-table" id="simpleCompareTable" aria-label="Easy comparison table"></div>
+        </div>
+
+        <div class="permutation-panel hidden" id="permutationPanel">
+          <div class="permutation-head">
+            <h2 class="panel-title">Album</h2>
+          </div>
+          <div class="album-pages" id="albumPages" aria-label="Permutation photos"></div>
+          <div class="permutation-capture-row">
+            <div class="permutation-order-zone" id="permutationOrderZone" data-zone="permutation-order" aria-label="Order smileys for the photo"></div>
+            <button class="camera-button" type="button" id="cameraButton" aria-label="Take photo of this order">
+              <span aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="creator-panel hidden" id="creatorPanel">
+          <div class="creator-head">
+            <h2 class="panel-title">Create</h2>
+          </div>
+          <div class="creator-layout">
+            <div class="creator-bank" id="creatorCriteriaBank" aria-label="Criteria to add"></div>
+            <div class="creator-workbench">
+              <div class="creator-current-tools">
+                <div class="creator-smiley-target" id="creatorSmileyTarget" aria-label="Current smiley"></div>
+                <button class="creator-reset-button" type="button" id="creatorResetButton" aria-label="Reset current smiley">
+                  <span aria-hidden="true"></span>
+                </button>
+              </div>
+            </div>
+            <div class="created-smileys" id="createdSmileys" aria-label="Created smileys"></div>
+          </div>
+        </div>
+
         <div class="venn-panel hidden" id="vennPanel">
+          <p class="selection-diagram-caption">Smileys</p>
           <div class="venn-stage" id="vennStage" aria-label="Three circle sorting diagram">
             <div class="venn-circle circle-a" aria-hidden="true">
               <div class="venn-circle-head" id="vennAHead"></div>
@@ -136,39 +234,37 @@
             <div class="venn-zone zone-abc" id="vennABCZone" data-zone="venn-abc" aria-label="All three features"></div>
             <div class="venn-zone zone-outside" id="vennOutsideZone" data-zone="venn-outside" aria-label="Outside all circles"></div>
           </div>
+          <div class="selection-panel hidden" id="selectionPanel">
+            <div class="selection-stage" id="selectionStage" aria-label="Select from the Venn diagram">
+              <div class="selection-source">
+                <div class="selection-caption" id="selectionCaption" aria-hidden="true"></div>
+              </div>
+            </div>
+          </div>
+          <div class="selection-target-zone" id="selectionTargetZone" data-zone="selection-target" aria-label="Selection target"></div>
         </div>
 
         <div class="implicit-panel hidden" id="implicitPanel">
           <div class="implicit-stage" id="implicitStage" aria-label="Find the hidden circle rule">
-            <div class="implicit-circle implicit-circle-a" aria-hidden="true"></div>
-            <div class="implicit-circle implicit-circle-b" aria-hidden="true"></div>
+            <div class="implicit-circle implicit-circle-a">
+              <button class="implicit-rule-head" type="button" id="implicitAHead" aria-label="Choose left hidden rule"></button>
+            </div>
+            <div class="implicit-circle implicit-circle-b">
+              <button class="implicit-rule-head" type="button" id="implicitBHead" aria-label="Choose right hidden rule"></button>
+            </div>
             <div class="implicit-zone implicit-zone-a" id="implicitAZone" data-zone="implicit-a" aria-label="First hidden circle only"></div>
             <div class="implicit-zone implicit-zone-b" id="implicitBZone" data-zone="implicit-b" aria-label="Second hidden circle only"></div>
             <div class="implicit-zone implicit-zone-ab" id="implicitABZone" data-zone="implicit-ab" aria-label="Both hidden circles"></div>
             <div class="implicit-zone implicit-zone-outside" id="implicitOutsideZone" data-zone="implicit-outside" aria-label="Outside both hidden circles"></div>
+            <div class="implicit-choice-list hidden" id="implicitChoiceList" aria-label="Choose hidden rule category"></div>
           </div>
         </div>
 
-        <button class="primary-button submit-sort-button" type="button" id="submitSortButton">OK</button>
+        <div class="action-row">
+          <button class="primary-button submit-sort-button" type="button" id="submitSortButton">OK</button>
+          <button class="secondary-button creator-finish-button" type="button" id="creatorFinishButton">Finish</button>
+        </div>
 
-        <form class="answer-panel hidden" id="answerPanel">
-          <h2>How many?</h2>
-          <div class="ppw-scheme" id="countScheme" aria-label="Counting scheme">
-            <label class="ppw-box whole-box">
-              <span>Whole</span>
-              <input id="wholeCountInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
-            </label>
-            <label class="ppw-box part-box">
-              <span class="count-label" id="withCountLabel"></span>
-              <input id="withCountInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
-            </label>
-            <label class="ppw-box part-box">
-              <span class="count-label" id="withoutCountLabel"></span>
-              <input id="withoutCountInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
-            </label>
-          </div>
-          <button class="primary-button ppw-ok-button" type="submit">OK</button>
-        </form>
       </section>
     </main>
 
@@ -190,6 +286,13 @@
       </button>
     </template>
 
-    <script src="app.js"></script>
+    <script type="module" src="app.js?v=core-modules-20260708"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>
