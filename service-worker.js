@@ -1,9 +1,9 @@
-const CACHE_NAME = "smileys-sorting-game-v1";
+const CACHE_NAME = "smileys-sorting-game-v35";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=smile-under-red-x-20260705",
-  "./app.js?v=smile-under-red-x-20260705",
+  "./styles.css?v=average-variable-count-20260708",
+  "./app.js?v=average-variable-count-20260708",
   "./manifest.webmanifest",
   "./icons/icon-180.png",
   "./icons/icon-192.png",
@@ -32,6 +32,19 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") {
+    return;
+  }
+
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put("./index.html", copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((cachedResponse) => cachedResponse || caches.match("./index.html")))
+    );
     return;
   }
 

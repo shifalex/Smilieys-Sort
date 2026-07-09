@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=select-instruction-line-20260708">
+    <link rel="stylesheet" href="styles.css?v=average-variable-count-20260708">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -117,6 +117,18 @@
               </span>
               <span class="mission-word" aria-hidden="true">Order</span>
             </button>
+            <button class="mission-choice statistics-mission" type="button" id="statisticsMissionButton" aria-label="Statistics">
+              <span class="statistics-sketch" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Statistics</span>
+            </button>
+            <button class="mission-choice average-mission" type="button" id="averageMissionButton" aria-label="Average">
+              <span class="average-sketch" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Average</span>
+            </button>
           </div>
         </div>
         <div class="count-panel hidden" id="countPanel">
@@ -144,6 +156,25 @@
             <div class="criteria-list" id="criteriaList" aria-label="Ordering criteria"></div>
           </div>
           <div class="ordering-zone" id="orderingZone" data-zone="order" aria-label="Ordered smileys"></div>
+        </div>
+
+        <div class="statistics-panel hidden" id="statisticsPanel">
+          <div class="statistics-head">
+            <h2 class="panel-title">Statistics</h2>
+            <p class="statistics-instruction" id="statisticsInstruction"></p>
+          </div>
+          <div class="statistics-frequency" id="statisticsFrequency" aria-label="Beard frequency table"></div>
+          <div class="statistics-order-wrap">
+            <p class="statistics-ranking-direction" id="statisticsRankingDirection"></p>
+            <div class="statistics-order-zone" id="statisticsOrderZone" data-zone="statistics-order" aria-label="Ordered statistics smileys"></div>
+            <div class="statistics-coin-stage hidden" id="statisticsCoinStage">
+              <div class="coin-bank" id="statisticsCoinBank" aria-label="Coin tray"></div>
+              <div class="coin-share-row" id="statisticsCoinShares" aria-label="Equal coin shares"></div>
+            </div>
+          </div>
+          <div class="statistics-weighted-table hidden" id="statisticsWeightedTable" aria-label="Weighted average table"></div>
+          <p class="statistics-question" id="statisticsQuestion"></p>
+          <div class="statistics-answer-row" id="statisticsAnswerRow" aria-label="Statistics answers"></div>
         </div>
 
         <div class="carroll-panel hidden" id="carrollPanel">
@@ -286,7 +317,7 @@
       </button>
     </template>
 
-    <script type="module" src="app.js?v=core-modules-20260708"></script>
+    <script type="module" src="app.js?v=average-variable-count-20260708"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {

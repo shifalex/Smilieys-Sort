@@ -13,154 +13,18 @@ import {
   makePlayableSmileys,
   makeSmileys
 } from "./src/core/smileys.js";
+import {
+  addBeardLengthCoins,
+  BEARD_LEVELS,
+  getBeardLabel,
+  getBeardModeValue,
+  makeStatisticsBeardSmileys,
+  makeStatisticsCoinSmileys,
+} from "./src/core/statistics.js";
 import { shuffle, triadKey } from "./src/core/utils.js";
-
-const state = {
-  smileys: [],
-  activeFeatures: [],
-  mission: "feature",
-  phase: "setup",
-  featureIndex: 0,
-  activeOrderingCriteria: [],
-  orderingLevel: 1,
-  orderingHadMistake: false,
-  orderingCleanWins: 0,
-  vennLevel: 1,
-  vennHadMistake: false,
-  vennCleanWins: 0,
-  activeCarrollCriteria: [],
-  activeVennCriteria: [],
-  activeImplicitCriteria: [],
-  implicitGuesses: [null, null],
-  implicitChoiceIndex: null,
-  compareSmileys: [],
-  comparePlacements: {},
-  compareVisualX: {},
-  compareMode: "drag",
-  simpleCompareSmileys: [],
-  simpleCompareMarks: {},
-  permutationLevel: 1,
-  permutationCleanWins: 0,
-  permutationHadMistake: false,
-  permutationAlbum: [],
-  selectionLevel: 1,
-  selectionHadMistake: false,
-  selectionCleanWins: 0,
-  selectionSourceZone: null,
-  selectionSourceRule: null,
-  creatorLevel: 1,
-  creatorHadMistake: false,
-  creatorCleanWins: 0,
-  creatorCriteria: [],
-  creatorCurrent: null,
-  createdSmileys: [],
-  requestedCount: 0,
-  useNumbers: false,
-  countChallenge: null,
-  setCycle: 0,
-  reuseGoal: 3,
-  nextPlacementOrder: 1,
-  mistakeStreak: 0,
-  returnAfterErrorPending: false,
-  returnAfterErrorTimer: null,
-  dragging: null,
-  cycleTimers: []
-};
-
-const els = {
-  setupPanel: document.querySelector("#setupPanel"),
-  backButton: document.querySelector("#backButton"),
-  missionPanel: document.querySelector("#missionPanel"),
-  modePanel: document.querySelector("#modePanel"),
-  countPanel: document.querySelector("#countPanel"),
-  featureMissionButton: document.querySelector("#featureMissionButton"),
-  orderingMissionButton: document.querySelector("#orderingMissionButton"),
-  carrollMissionButton: document.querySelector("#carrollMissionButton"),
-  compareMissionButton: document.querySelector("#compareMissionButton"),
-  simpleCompareMissionButton: document.querySelector("#simpleCompareMissionButton"),
-  permutationMissionButton: document.querySelector("#permutationMissionButton"),
-  selectionMissionButton: document.querySelector("#selectionMissionButton"),
-  creatorMissionButton: document.querySelector("#creatorMissionButton"),
-  vennMissionButton: document.querySelector("#vennMissionButton"),
-  implicitMissionButton: document.querySelector("#implicitMissionButton"),
-  withNumbersButton: document.querySelector("#withNumbersButton"),
-  withoutNumbersButton: document.querySelector("#withoutNumbersButton"),
-  workPanel: document.querySelector("#workPanel"),
-  screenTitle: document.querySelector("#screenTitle"),
-  countGrid: document.querySelector("#countGrid"),
-  progressText: document.querySelector("#progressText"),
-  featurePrompt: document.querySelector("#featurePrompt"),
-  withHeader: document.querySelector("#withHeader"),
-  withoutHeader: document.querySelector("#withoutHeader"),
-  trayLabel: document.querySelector("#trayLabel"),
-  tray: document.querySelector("#tray"),
-  withZone: document.querySelector("#withZone"),
-  withoutZone: document.querySelector("#withoutZone"),
-  sortTable: document.querySelector("#sortTable"),
-  orderingPanel: document.querySelector("#orderingPanel"),
-  orderingZone: document.querySelector("#orderingZone"),
-  criteriaList: document.querySelector("#criteriaList"),
-  carrollPanel: document.querySelector("#carrollPanel"),
-  carrollTable: document.querySelector("#carrollTable"),
-  carrollTopWith: document.querySelector("#carrollTopWith"),
-  carrollTopWithout: document.querySelector("#carrollTopWithout"),
-  carrollSideWith: document.querySelector("#carrollSideWith"),
-  carrollSideWithout: document.querySelector("#carrollSideWithout"),
-  carrollWithWithZone: document.querySelector("#carrollWithWithZone"),
-  carrollWithoutWithZone: document.querySelector("#carrollWithoutWithZone"),
-  carrollWithWithoutZone: document.querySelector("#carrollWithWithoutZone"),
-  carrollWithoutWithoutZone: document.querySelector("#carrollWithoutWithoutZone"),
-  comparePanel: document.querySelector("#comparePanel"),
-  compareFaces: document.querySelector("#compareFaces"),
-  compareCriteriaBank: document.querySelector("#compareCriteriaBank"),
-  compareEqualZone: document.querySelector("#compareEqualZone"),
-  compareDifferentZone: document.querySelector("#compareDifferentZone"),
-  compareDragView: document.querySelector("#compareDragView"),
-  compareTable: document.querySelector("#compareTable"),
-  simpleComparePanel: document.querySelector("#simpleComparePanel"),
-  simpleCompareFaces: document.querySelector("#simpleCompareFaces"),
-  simpleCompareTable: document.querySelector("#simpleCompareTable"),
-  permutationPanel: document.querySelector("#permutationPanel"),
-  permutationOrderZone: document.querySelector("#permutationOrderZone"),
-  albumPages: document.querySelector("#albumPages"),
-  cameraButton: document.querySelector("#cameraButton"),
-  selectionPanel: document.querySelector("#selectionPanel"),
-  selectionStage: document.querySelector("#selectionStage"),
-  selectionCaption: document.querySelector("#selectionCaption"),
-  selectionTargetZone: document.querySelector("#selectionTargetZone"),
-  creatorPanel: document.querySelector("#creatorPanel"),
-  creatorFinishButton: document.querySelector("#creatorFinishButton"),
-  creatorCriteriaBank: document.querySelector("#creatorCriteriaBank"),
-  creatorSmileyTarget: document.querySelector("#creatorSmileyTarget"),
-  creatorResetButton: document.querySelector("#creatorResetButton"),
-  createdSmileys: document.querySelector("#createdSmileys"),
-  vennPanel: document.querySelector("#vennPanel"),
-  vennStage: document.querySelector("#vennStage"),
-  vennAHead: document.querySelector("#vennAHead"),
-  vennBHead: document.querySelector("#vennBHead"),
-  vennCHead: document.querySelector("#vennCHead"),
-  vennAZone: document.querySelector("#vennAZone"),
-  vennBZone: document.querySelector("#vennBZone"),
-  vennCZone: document.querySelector("#vennCZone"),
-  vennABZone: document.querySelector("#vennABZone"),
-  vennACZone: document.querySelector("#vennACZone"),
-  vennBCZone: document.querySelector("#vennBCZone"),
-  vennABCZone: document.querySelector("#vennABCZone"),
-  vennOutsideZone: document.querySelector("#vennOutsideZone"),
-  implicitPanel: document.querySelector("#implicitPanel"),
-  implicitAHead: document.querySelector("#implicitAHead"),
-  implicitBHead: document.querySelector("#implicitBHead"),
-  implicitChoiceList: document.querySelector("#implicitChoiceList"),
-  implicitStage: document.querySelector("#implicitStage"),
-  implicitAZone: document.querySelector("#implicitAZone"),
-  implicitBZone: document.querySelector("#implicitBZone"),
-  implicitABZone: document.querySelector("#implicitABZone"),
-  implicitOutsideZone: document.querySelector("#implicitOutsideZone"),
-  submitSortButton: document.querySelector("#submitSortButton"),
-  celebration: document.querySelector("#celebration"),
-  newSetButton: document.querySelector("#newSetButton"),
-  smileyTemplate: document.querySelector("#smileyTemplate")
-};
+import { els, getAllDropContainers, getZoneElement } from "./src/app/elements.js";
+import { setHeader, setProgress } from "./src/app/header.js";
+import { state } from "./src/app/state.js";
 
 function init() {
   for (let count = 2; count <= 10; count += 1) {
@@ -182,6 +46,8 @@ function init() {
   els.creatorMissionButton.addEventListener("click", () => startCreatorMission());
   els.vennMissionButton.addEventListener("click", () => startVennMission());
   els.implicitMissionButton.addEventListener("click", () => startImplicitMission());
+  els.statisticsMissionButton.addEventListener("click", () => startStatisticsMission());
+  (els.averageMissionButton || document.querySelector("#averageMissionButton"))?.addEventListener("click", () => startAverageMission());
   els.cameraButton.addEventListener("click", () => capturePermutationPhoto());
   els.creatorFinishButton.addEventListener("click", () => validateCreatorFinish());
   els.creatorResetButton.addEventListener("click", () => resetCreatorCurrent());
@@ -201,17 +67,6 @@ function init() {
     event.preventDefault();
     validateCurrentPhase();
   });
-}
-
-function setHeader(title, progress = "") {
-  els.screenTitle.textContent = title;
-  els.progressText.textContent = progress;
-  els.progressText.classList.toggle("hidden", !progress);
-}
-
-function setProgress(progress = "") {
-  els.progressText.textContent = progress;
-  els.progressText.classList.toggle("hidden", !progress);
 }
 
 function chooseFeatureMission() {
@@ -285,6 +140,73 @@ function startOrderingMission(resetProgress = false, clearPendingTimers = true) 
   els.workPanel.classList.remove("hidden");
   els.backButton.classList.remove("hidden");
   startOrderingPhase();
+}
+
+function startStatisticsMission(clearPendingTimers = true) {
+  if (clearPendingTimers) {
+    clearCycleTimers();
+  }
+  els.workPanel.classList.remove("cycle-fading-out");
+  state.mission = "statistics";
+  state.requestedCount = [7, 9, 11][Math.floor(Math.random() * 3)];
+  state.phase = "statistics";
+  state.statisticsStep = "beard-frequency";
+  state.statisticsQuestionIndex = 0;
+  state.statisticsAnswer = null;
+  state.statisticsHadMistake = false;
+  state.statisticsCoins = [];
+  state.statisticsCoinStep = "average-question";
+  state.statisticsCoinsDistributed = false;
+  state.statisticsWeightedChallenge = null;
+  state.featureIndex = 0;
+  state.nextPlacementOrder = 1;
+  state.smileys = makeStatisticsBeardSmileys(state.requestedCount);
+  state.activeFeatures = [];
+  state.activeOrderingCriteria = [];
+  state.activeCarrollCriteria = [];
+  state.activeVennCriteria = [];
+  state.activeImplicitCriteria = [];
+  resetCompareState();
+  state.countChallenge = null;
+  resetMistakeCounter();
+  els.setupPanel.classList.add("hidden");
+  els.workPanel.classList.remove("hidden");
+  els.backButton.classList.remove("hidden");
+  startStatisticsPhase();
+}
+
+function startAverageMission(clearPendingTimers = true) {
+  if (clearPendingTimers) {
+    clearCycleTimers();
+  }
+  els.workPanel.classList.remove("cycle-fading-out");
+  state.mission = "average";
+  state.requestedCount = 3 + Math.floor(Math.random() * 8);
+  state.phase = "statistics";
+  state.statisticsStep = "average-only";
+  state.statisticsQuestionIndex = 0;
+  state.statisticsAnswer = null;
+  state.statisticsHadMistake = false;
+  state.statisticsCoins = [];
+  state.statisticsCoinStep = "average-question";
+  state.statisticsCoinsDistributed = false;
+  state.statisticsWeightedChallenge = null;
+  state.featureIndex = 0;
+  state.nextPlacementOrder = 1;
+  state.smileys = makeStatisticsCoinSmileys(state.requestedCount);
+  initializeAverageOnlyCoins();
+  state.activeFeatures = [];
+  state.activeOrderingCriteria = [];
+  state.activeCarrollCriteria = [];
+  state.activeVennCriteria = [];
+  state.activeImplicitCriteria = [];
+  resetCompareState();
+  state.countChallenge = null;
+  resetMistakeCounter();
+  els.setupPanel.classList.add("hidden");
+  els.workPanel.classList.remove("hidden");
+  els.backButton.classList.remove("hidden");
+  startStatisticsPhase();
 }
 
 function startCarrollMission(clearPendingTimers = true, count = getDefaultSmileyCount()) {
@@ -554,6 +476,14 @@ function showSetup() {
   state.selectionLevel = 1;
   state.creatorLevel = 1;
   state.permutationLevel = 1;
+  state.statisticsStep = "beard-frequency";
+  state.statisticsQuestionIndex = 0;
+  state.statisticsAnswer = null;
+  state.statisticsHadMistake = false;
+  state.statisticsCoins = [];
+  state.statisticsCoinStep = "average-question";
+  state.statisticsCoinsDistributed = false;
+  state.statisticsWeightedChallenge = null;
   state.orderingHadMistake = false;
   state.vennHadMistake = false;
   state.orderingCleanWins = 0;
@@ -564,6 +494,7 @@ function showSetup() {
   state.phase = "setup";
   state.featureIndex = 0;
   els.workPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
   els.setupPanel.classList.remove("hidden");
   els.backButton.classList.add("hidden");
   els.missionPanel.classList.remove("hidden");
@@ -581,6 +512,7 @@ function startFeature(previousRects = null) {
   });
   els.sortTable.classList.remove("hidden");
   els.orderingPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
   els.carrollPanel.classList.add("hidden");
   els.comparePanel.classList.add("hidden");
   els.simpleComparePanel.classList.add("hidden");
@@ -873,7 +805,7 @@ function renderSmileys(excludedId = null) {
   getAllDropContainers().forEach(zone => zone.replaceChildren());
   getSmileysInRenderOrder().forEach(smiley => {
     if (smiley.id === excludedId) {
-      if (smiley.zone === "order" || smiley.zone === "permutation-order") {
+      if (smiley.zone === "order" || smiley.zone === "permutation-order" || smiley.zone === "statistics-order") {
         getZoneElement(smiley.zone).append(createOrderPlaceholder());
       }
       return;
@@ -881,6 +813,15 @@ function renderSmileys(excludedId = null) {
     const node = createSmileyNode(smiley);
     getZoneElement(smiley.zone).append(node);
   });
+  if (!excludedId && state.phase === "statistics" && ["beard-ranking", "ranking-questions", "coins"].includes(state.statisticsStep)) {
+    renderStatisticsRankSlots();
+  }
+  if (!excludedId && state.phase === "statistics" && state.statisticsStep === "coins") {
+    renderStatisticsCoins();
+  }
+  if (!excludedId && state.phase === "statistics" && state.statisticsStep === "average-only") {
+    renderAverageOnlySmileyCoins();
+  }
 }
 
 function createOrderPlaceholder() {
@@ -910,6 +851,8 @@ function getSmileysInRenderOrder() {
 
 function zoneRank(zone) {
   if (zone === "tray") return 0;
+  if (zone.startsWith("statistics-beard")) return 1;
+  if (zone === "statistics-order") return 2;
   if (zone === "with") return 1;
   if (zone === "without") return 2;
   if (zone.startsWith("carroll")) return 3;
@@ -918,33 +861,6 @@ function zoneRank(zone) {
   if (zone === "selection-target") return 6;
   if (zone === "permutation-order") return 7;
   return 3;
-}
-
-function getAllDropContainers() {
-  return [
-    els.tray,
-    els.withZone,
-    els.withoutZone,
-    els.orderingZone,
-    els.permutationOrderZone,
-    els.carrollWithWithZone,
-    els.carrollWithoutWithZone,
-    els.carrollWithWithoutZone,
-    els.carrollWithoutWithoutZone,
-    els.vennAZone,
-    els.vennBZone,
-    els.vennCZone,
-    els.vennABZone,
-    els.vennACZone,
-    els.vennBCZone,
-    els.vennABCZone,
-    els.vennOutsideZone,
-    els.implicitAZone,
-    els.implicitBZone,
-    els.implicitABZone,
-    els.implicitOutsideZone,
-    els.selectionTargetZone
-  ].filter(Boolean);
 }
 
 function createSmileyNode(smiley) {
@@ -956,6 +872,12 @@ function createSmileyNode(smiley) {
   node.classList.toggle("neutral", smiley.expression === "neutral");
   node.classList.toggle("has-hat", smiley.hat);
   node.classList.toggle("has-ears", smiley.ears);
+  if (Number.isInteger(smiley.beardLevel)) {
+    node.classList.add("has-beard", `beard-${smiley.beardLevel}`);
+    const beard = document.createElement("span");
+    beard.className = "beard";
+    node.append(beard);
+  }
   node.addEventListener("pointerdown", event => beginDrag(event, node));
   return node;
 }
@@ -966,12 +888,15 @@ function describeSmiley(smiley) {
   const expression = smiley.expression === "smile" ? "smiling" : "neutral";
   const hat = smiley.hat ? "with hat" : "without hat";
   const ears = smiley.ears ? "with ears" : "without ears";
-  return `${shape}, ${color}, ${expression}, ${hat}, ${ears}`;
+  const beard = Number.isInteger(smiley.beardLevel) ? `, ${getBeardLabel(smiley.beardLevel)}` : "";
+  const coins = Number.isInteger(smiley.coins) ? `, ${smiley.coins} coins` : "";
+  return `${shape}, ${color}, ${expression}, ${hat}, ${ears}${beard}${coins}`;
 }
 
 function beginDrag(event, node) {
   event.preventDefault();
   if (isCelebrating()) return;
+  if (state.phase === "statistics" && ["coins", "average-only"].includes(state.statisticsStep)) return;
   if (state.dragging) {
     cancelActiveDrag();
   }
@@ -1003,6 +928,10 @@ function beginDrag(event, node) {
 
 function cancelActiveDrag() {
   if (!state.dragging) return;
+  if (state.dragging.type === "statistics-coin") {
+    cancelStatisticsCoinDrag();
+    return;
+  }
   if (state.dragging.type === "compare-criterion") {
     cancelCompareCriteriaDrag();
     return;
@@ -1070,7 +999,7 @@ function markRejectedSmiley(id) {
 }
 
 function moveSmileyToZone(smiley, zone, x = null, y = null) {
-  if (zone === "order" || zone === "permutation-order") {
+  if (zone === "order" || zone === "permutation-order" || zone === "statistics-order") {
     moveSmileyToOrder(smiley, x, y);
     return;
   }
@@ -1083,7 +1012,11 @@ function moveSmileyToZone(smiley, zone, x = null, y = null) {
 
 function moveSmileyToOrder(smiley, x, y) {
   const orderZone = getActiveOrderZone();
-  const orderZoneKey = state.phase === "permutation" ? "permutation-order" : "order";
+  const orderZoneKey = getActiveOrderZoneKey();
+  if (state.phase === "statistics") {
+    moveSmileyToStatisticsOrder(smiley, x, y);
+    return;
+  }
   const orderedSmileys = state.smileys
     .filter(item => item.id !== smiley.id && item.zone === orderZoneKey)
     .sort((first, second) => first.placementOrder - second.placementOrder);
@@ -1099,10 +1032,28 @@ function moveSmileyToOrder(smiley, x, y) {
   }
 }
 
+function moveSmileyToStatisticsOrder(smiley, x, y) {
+  const insertIndex = getOrderInsertIndex(x, y);
+  const occupied = state.smileys.some(item =>
+    item.id !== smiley.id &&
+    item.zone === "statistics-order" &&
+    item.placementOrder === insertIndex
+  );
+  if (occupied) return;
+  smiley.zone = "statistics-order";
+  smiley.placementOrder = Math.min(insertIndex, state.smileys.length - 1);
+  normalizeOrderedSmileys();
+  state.nextPlacementOrder = getStatisticsOrderedSmileys().length;
+  if (els.statisticsOrderZone) {
+    els.statisticsOrderZone.dataset.zone = "statistics-order";
+  }
+}
+
 function previewOrderingDrag(x, y) {
-  if (!["ordering", "permutation"].includes(state.phase) || !state.dragging) return;
+  if (!["ordering", "permutation", "statistics"].includes(state.phase) || !state.dragging) return;
+  if (state.phase === "statistics") return;
   const orderZone = getActiveOrderZone();
-  const orderZoneKey = state.phase === "permutation" ? "permutation-order" : "order";
+  const orderZoneKey = getActiveOrderZoneKey();
   if (!isPointInsideElement(orderZone, x, y)) return;
   const smiley = state.smileys.find(item => item.id === state.dragging.id);
   if (!smiley) return;
@@ -1137,9 +1088,31 @@ function normalizeOrderedSmileys() {
     .forEach((smiley, index) => {
       smiley.placementOrder = index;
     });
+  normalizeStatisticsOrderSlots();
+}
+
+function normalizeStatisticsOrderSlots() {
+  const used = new Set();
+  state.smileys
+    .filter(smiley => smiley.zone === "statistics-order")
+    .sort((first, second) => first.placementOrder - second.placementOrder)
+    .forEach(smiley => {
+      let slot = Math.max(0, Math.min(state.smileys.length - 1, smiley.placementOrder));
+      while (used.has(slot) && slot < state.smileys.length - 1) {
+        slot += 1;
+      }
+      while (used.has(slot) && slot > 0) {
+        slot -= 1;
+      }
+      smiley.placementOrder = slot;
+      used.add(slot);
+    });
 }
 
 function getOrderInsertIndex(x, y) {
+  if (state.phase === "statistics") {
+    return getStatisticsOrderInsertIndex(y);
+  }
   const orderZone = getActiveOrderZone();
   const nodes = [...orderZone.querySelectorAll(".smiley")]
     .filter(node => !state.dragging || node.dataset.id !== state.dragging.id)
@@ -1183,8 +1156,24 @@ function getOrderInsertIndex(x, y) {
   return nodes.length;
 }
 
+function getStatisticsOrderInsertIndex(y) {
+  const orderZone = els.statisticsOrderZone;
+  const count = state.smileys.length || 1;
+  const rect = orderZone.getBoundingClientRect();
+  const rowHeight = rect.height / count;
+  const relativeY = y - rect.top;
+  const index = Math.floor(relativeY / Math.max(1, rowHeight));
+  return Math.max(0, Math.min(count - 1, index));
+}
+
 function getActiveOrderZone() {
+  if (state.phase === "statistics") return els.statisticsOrderZone;
   return state.phase === "permutation" ? els.permutationOrderZone : els.orderingZone;
+}
+
+function getActiveOrderZoneKey() {
+  if (state.phase === "statistics") return "statistics-order";
+  return state.phase === "permutation" ? "permutation-order" : "order";
 }
 
 function getHoveredOrderInsertIndex(node, index) {
@@ -1192,7 +1181,7 @@ function getHoveredOrderInsertIndex(node, index) {
   const hoveredSmiley = state.smileys.find(smiley => smiley.id === node.dataset.id);
   if (!hoveredSmiley) return index;
   const originalOrder = state.dragging.originalPlacementOrder ?? 0;
-  if (state.dragging.originalZone === "order" && originalOrder < hoveredSmiley.placementOrder) {
+  if (state.dragging.originalZone === getActiveOrderZoneKey() && originalOrder < hoveredSmiley.placementOrder) {
     return index + 1;
   }
   return index;
@@ -1236,7 +1225,7 @@ function clearDropMarks() {
 }
 
 function getDropTarget(x, y) {
-  if (state.phase === "ordering" || state.phase === "permutation") {
+  if (state.phase === "ordering" || state.phase === "permutation" || (state.phase === "statistics" && state.statisticsStep === "beard-ranking")) {
     const orderZone = getActiveOrderZone();
     if (isPointInsideElement(orderZone, x, y)) return orderZone;
     if (isPointInsideElement(els.tray, x, y)) return els.tray;
@@ -1281,6 +1270,9 @@ function getDropTarget(x, y) {
   }
   if (state.phase === "implicit") {
     return element.closest(".implicit-zone, .smiley-tray");
+  }
+  if (state.phase === "statistics") {
+    return element.closest(".statistics-beard-zone, .statistics-order-zone, .smiley-tray");
   }
   if (state.phase === "selection") {
     return element.closest(".venn-zone, .selection-target-zone");
@@ -1329,6 +1321,10 @@ function validateCurrentPhase() {
   }
   if (state.phase === "implicit") {
     validateImplicit();
+    return;
+  }
+  if (state.phase === "statistics") {
+    validateStatistics();
     return;
   }
   validateSort();
@@ -1418,8 +1414,10 @@ function signalIncorrect() {
         ? els.creatorPanel
       : state.phase === "venn"
         ? els.vennPanel
-        : state.phase === "implicit"
-          ? els.implicitPanel
+      : state.phase === "implicit"
+        ? els.implicitPanel
+      : state.phase === "statistics"
+        ? els.statisticsPanel
       : els.sortTable;
   target.classList.remove("shake");
   window.requestAnimationFrame(() => target.classList.add("shake"));
@@ -1820,6 +1818,7 @@ function startOrderingPhase(previousRects = null) {
   els.sortTable.classList.add("hidden");
   resetCountChallenge();
   els.orderingPanel.classList.remove("hidden");
+  els.statisticsPanel.classList.add("hidden");
   els.carrollPanel.classList.add("hidden");
   els.comparePanel.classList.add("hidden");
   els.simpleComparePanel.classList.add("hidden");
@@ -1840,6 +1839,776 @@ function startOrderingPhase(previousRects = null) {
   }
 }
 
+function startStatisticsPhase(previousRects = null) {
+  state.phase = "statistics";
+  resetMistakeCounter();
+  resetCountChallenge();
+  els.sortTable.classList.add("hidden");
+  els.orderingPanel.classList.add("hidden");
+  els.carrollPanel.classList.add("hidden");
+  els.comparePanel.classList.add("hidden");
+  els.simpleComparePanel.classList.add("hidden");
+  els.permutationPanel.classList.add("hidden");
+  els.selectionPanel.classList.add("hidden");
+  els.creatorPanel.classList.add("hidden");
+  els.vennPanel.classList.add("hidden");
+  els.implicitPanel.classList.add("hidden");
+  els.statisticsPanel.classList.remove("hidden");
+  els.tray.dataset.count = String(state.smileys.length);
+  els.trayLabel.textContent = state.statisticsStep === "beard-frequency" || state.statisticsStep === "average-only" ? "Smileys" : "";
+  els.submitSortButton.classList.remove("hidden");
+  els.submitSortButton.textContent = "OK";
+  unlockSubmitButton();
+  renderStatistics();
+  renderSmileys();
+  if (previousRects) {
+    animateSmileysFrom(previousRects);
+  }
+}
+
+function renderStatistics() {
+  els.statisticsFrequency.classList.toggle("hidden", !["beard-frequency", "beard-questions", "beard-ranking", "ranking-questions", "coins"].includes(state.statisticsStep));
+  els.statisticsOrderZone.classList.toggle("hidden", !["beard-ranking", "ranking-questions", "coins"].includes(state.statisticsStep));
+  els.statisticsCoinStage.classList.toggle("hidden", !["coins", "average-only"].includes(state.statisticsStep));
+  els.statisticsPanel.classList.toggle("is-coin-step", ["coins", "average-only"].includes(state.statisticsStep));
+  els.statisticsPanel.classList.toggle("is-average-only-step", state.statisticsStep === "average-only");
+  els.statisticsWeightedTable.classList.add("hidden");
+  const statisticsInstruction = document.querySelector("#statisticsInstruction");
+  const statisticsRankingDirection = document.querySelector("#statisticsRankingDirection");
+  if (statisticsInstruction) {
+    statisticsInstruction.textContent = "";
+  }
+  if (statisticsRankingDirection) {
+    statisticsRankingDirection.textContent = "";
+  }
+  els.statisticsQuestion.textContent = "";
+  els.statisticsAnswerRow.replaceChildren();
+
+  if (state.statisticsStep === "beard-frequency") {
+    setHeader("Statistics", "1 of 5");
+    if (statisticsInstruction) {
+      statisticsInstruction.textContent = "Sort the smileys by beard length.";
+    }
+    renderStatisticsFrequency();
+    els.statisticsOrderZone.replaceChildren();
+    els.statisticsOrderZone.dataset.count = String(state.smileys.length);
+    renderStatisticsRankSlots();
+    return;
+  }
+
+  if (state.statisticsStep === "beard-questions") {
+    setHeader("Statistics", "2 of 5");
+    if (statisticsInstruction) {
+      statisticsInstruction.textContent = "Use the frequency table.";
+    }
+    renderStatisticsFrequency();
+    renderStatisticsBeardQuestion();
+    return;
+  }
+
+  if (state.statisticsStep === "beard-ranking") {
+    setHeader("Statistics", "3 of 5");
+    if (statisticsInstruction) {
+      statisticsInstruction.textContent = "";
+    }
+    renderStatisticsFrequency();
+    els.statisticsOrderZone.dataset.count = String(state.smileys.length);
+    if (statisticsRankingDirection) {
+      statisticsRankingDirection.textContent = "Rank from longest beard at the top to shortest beard at the bottom.";
+    }
+    renderStatisticsRankSlots();
+    return;
+  }
+
+  if (state.statisticsStep === "ranking-questions") {
+    setHeader("Statistics", "4 of 5");
+    if (statisticsInstruction) {
+      statisticsInstruction.textContent = "Use the ranking table.";
+    }
+    renderStatisticsFrequency();
+    els.statisticsOrderZone.dataset.count = String(state.smileys.length);
+    renderStatisticsRankSlots();
+    renderStatisticsRankingQuestion();
+    return;
+  }
+
+  if (state.statisticsStep === "coins") {
+    setHeader("Statistics", "5 of 5");
+    if (statisticsInstruction) {
+      statisticsInstruction.textContent = state.statisticsCoinStep === "average-question" || state.statisticsCoinStep === "average-review"
+        ? "Choose the average coins."
+        : state.statisticsCoinStep === "total-question"
+          ? "Find the total coins first."
+          : "Drag coins from the ranked smileys to the tray, then share them equally.";
+    }
+    renderStatisticsFrequency();
+    renderStatisticsCoinStage();
+    if (state.statisticsCoinStep === "average-question" || state.statisticsCoinStep === "average-review") {
+      renderStatisticsCoinAverageQuestion();
+    } else if (state.statisticsCoinStep === "total-question") {
+      renderStatisticsCoinTotalQuestion();
+    } else {
+      els.statisticsQuestion.textContent = "Spread the coins equally.";
+      els.statisticsAnswerRow.replaceChildren();
+    }
+    return;
+  }
+
+  if (state.statisticsStep === "average-only") {
+    setHeader("Average");
+    if (statisticsInstruction) {
+      statisticsInstruction.textContent = "Find the average coins.";
+    }
+    renderStatisticsAverageOnlyStage();
+    renderStatisticsAverageOnlyQuestion();
+    return;
+  }
+}
+
+function renderStatisticsFrequency() {
+  els.statisticsFrequency.replaceChildren();
+  BEARD_LEVELS.forEach(level => {
+    const column = document.createElement("div");
+    column.className = "statistics-frequency-column";
+    const head = document.createElement("div");
+    head.className = "statistics-frequency-head";
+    head.setAttribute("aria-label", level.label);
+    head.append(createBeardIcon(level.value));
+    const zone = document.createElement("div");
+    zone.className = "statistics-beard-zone";
+    zone.dataset.zone = `statistics-beard-${level.value}`;
+    zone.setAttribute("aria-label", level.label);
+    column.append(head, zone);
+    els.statisticsFrequency.append(column);
+  });
+}
+
+function renderStatisticsRankSlots() {
+  els.statisticsOrderZone.querySelectorAll(".statistics-rank-row, .statistics-rank-slot").forEach(node => node.remove());
+  const middleIndex = Math.floor(state.smileys.length / 2);
+  const smileyNodesBySlot = new Map(
+    getStatisticsOrderedSmileys().map(smiley => [
+      smiley.placementOrder,
+      els.statisticsOrderZone.querySelector(`[data-id="${CSS.escape(smiley.id)}"]`)
+    ])
+  );
+  const rowNodes = [];
+  for (let index = 0; index < state.smileys.length; index += 1) {
+    const row = document.createElement("div");
+    row.className = "statistics-rank-row";
+    row.dataset.rankIndex = String(index);
+    markStatisticsRankRow(row, index, middleIndex);
+    const smileyNode = smileyNodesBySlot.get(index);
+    if (smileyNode) {
+      smileyNode.dataset.rank = String(index + 1);
+      smileyNode.classList.remove("is-first-rank", "is-middle-rank", "is-last-rank");
+      row.append(smileyNode);
+      rowNodes.push(row);
+      continue;
+    }
+    const slot = document.createElement("span");
+    slot.className = "statistics-rank-slot";
+    slot.textContent = String(index + 1);
+    slot.dataset.rankIndex = String(index);
+    slot.setAttribute("aria-hidden", "true");
+    row.append(slot);
+    rowNodes.push(row);
+  }
+  els.statisticsOrderZone.replaceChildren(...rowNodes);
+  if (state.statisticsStep === "coins") {
+    renderStatisticsCoins();
+  }
+}
+
+function markStatisticsRankRow(node, index, middleIndex) {
+  node.classList.remove("is-first-rank", "is-middle-rank", "is-last-rank");
+  node.classList.toggle("is-first-rank", index === 0);
+  node.classList.toggle("is-middle-rank", index === middleIndex);
+  node.classList.toggle("is-last-rank", index === state.smileys.length - 1);
+}
+
+function renderStatisticsBeardQuestion() {
+  const questions = getStatisticsBeardQuestions();
+  const question = questions[state.statisticsQuestionIndex];
+  els.statisticsQuestion.textContent = question.prompt;
+  renderStatisticsBeardIconAnswerChoices(question.choices, question.answer);
+}
+
+function renderStatisticsRankingQuestion() {
+  const questions = getStatisticsRankingQuestions();
+  const question = questions[state.statisticsQuestionIndex];
+  els.statisticsQuestion.textContent = question.prompt;
+  renderStatisticsBeardIconAnswerChoices(question.choices, question.answer);
+}
+
+function createBeardIcon(level) {
+  const icon = document.createElement("span");
+  icon.className = `beard-icon beard-icon-${level}`;
+  icon.setAttribute("aria-hidden", "true");
+  icon.append(document.createElement("span"));
+  return icon;
+}
+
+function renderStatisticsAnswerChoices(choices, correctAnswer) {
+  els.statisticsAnswerRow.replaceChildren();
+  choices.forEach(choice => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "statistics-answer-button";
+    button.textContent = choice.label;
+    button.dataset.value = String(choice.value);
+    button.classList.toggle("is-selected", state.statisticsAnswer === choice.value);
+    button.addEventListener("click", () => {
+      state.statisticsAnswer = choice.value;
+      renderStatisticsAnswerChoices(choices, correctAnswer);
+    });
+    els.statisticsAnswerRow.append(button);
+  });
+}
+
+function renderStatisticsBeardIconAnswerChoices(choices, correctAnswer) {
+  els.statisticsAnswerRow.replaceChildren();
+  choices.forEach(choice => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "statistics-answer-button statistics-beard-answer";
+    button.dataset.value = String(choice.value);
+    button.classList.toggle("is-selected", state.statisticsAnswer === choice.value);
+    button.setAttribute("aria-label", choice.label);
+    button.append(createBeardIcon(choice.value));
+    button.addEventListener("click", () => {
+      state.statisticsAnswer = choice.value;
+      renderStatisticsBeardIconAnswerChoices(choices, correctAnswer);
+    });
+    els.statisticsAnswerRow.append(button);
+  });
+}
+
+function renderStatisticsCoinStage() {
+  els.statisticsCoinBank.replaceChildren();
+  const bankCoins = document.createElement("div");
+  bankCoins.className = "coin-bank-dots";
+  els.statisticsCoinBank.append(createCoinTrayIcon(), bankCoins);
+  els.statisticsCoinShares.replaceChildren();
+}
+
+function renderStatisticsAverageOnlyStage() {
+  els.statisticsFrequency.replaceChildren();
+  els.statisticsOrderZone.replaceChildren();
+  renderStatisticsCoinStage();
+  renderAverageOnlyResetButton();
+  renderAverageOnlySmileyCoins();
+}
+
+function renderAverageOnlySmileyCoins() {
+  if (state.statisticsStep !== "average-only") return;
+  const bankDots = els.statisticsCoinBank.querySelector(".coin-bank-dots");
+  if (bankDots) {
+    bankDots.replaceChildren(...state.statisticsCoins
+      .filter(coin => coin.location === "bank")
+      .map(coin => createCoinDot(coin)));
+  }
+  const nodesById = new Map([...els.tray.querySelectorAll(".smiley")].map(node => [node.dataset.id, node]));
+  const rowItems = [];
+  state.smileys
+    .filter(smiley => smiley.zone === "tray")
+    .sort((first, second) => first.originalOrder - second.originalOrder)
+    .forEach(smiley => {
+      const node = nodesById.get(smiley.id);
+      if (!node) return;
+      node.querySelector(".smiley-coin-dots")?.remove();
+      const pair = document.createElement("div");
+      pair.className = "average-pair";
+      pair.append(node, createAverageCoinPile(smiley));
+      rowItems.push(pair);
+    });
+  if (rowItems.length > 0) {
+    els.tray.replaceChildren(...rowItems);
+  }
+}
+
+function createAverageCoinPile(smiley) {
+  const pile = document.createElement("div");
+  pile.className = "average-coin-pile";
+  pile.dataset.smileyId = smiley.id;
+  pile.setAttribute("aria-label", "Coins for smiley");
+  state.statisticsCoins
+    .filter(coin => coin.location === smiley.id)
+    .forEach(coin => pile.append(createCoinDot(coin)));
+  return pile;
+}
+
+function renderAverageOnlyResetButton() {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "statistics-answer-button average-reset-button";
+  button.setAttribute("aria-label", "Reset coins");
+  button.title = "Reset coins";
+  button.textContent = "↺";
+  button.addEventListener("click", () => {
+    initializeAverageOnlyCoins();
+    renderStatisticsCoinStage();
+    renderAverageOnlyResetButton();
+    renderAverageOnlySmileyCoins();
+  });
+  els.statisticsCoinShares.replaceChildren(button);
+}
+
+function renderStatisticsCoins() {
+  const bankDots = els.statisticsCoinBank.querySelector(".coin-bank-dots");
+  if (bankDots) {
+    bankDots.replaceChildren(...state.statisticsCoins
+      .filter(coin => coin.location === "bank")
+      .map(coin => createCoinDot(coin)));
+  }
+
+  els.statisticsOrderZone.querySelectorAll(".smiley").forEach(node => {
+    node.querySelector(".smiley-coin-dots")?.remove();
+    node.querySelector(".smiley-coin-drop-area")?.remove();
+    const dropArea = document.createElement("span");
+    dropArea.className = "smiley-coin-drop-area";
+    dropArea.dataset.smileyId = node.dataset.id;
+    const holder = document.createElement("span");
+    holder.className = "smiley-coin-dots";
+    state.statisticsCoins
+      .filter(coin => coin.location === node.dataset.id)
+      .forEach(coin => holder.append(createCoinDot(coin)));
+    node.append(dropArea, holder);
+  });
+}
+
+function createCoinTrayIcon() {
+  const icon = document.createElement("div");
+  icon.className = "coin-tray-icon";
+  icon.setAttribute("aria-hidden", "true");
+  return icon;
+}
+
+function createCoinDot(coin = null) {
+  const dot = document.createElement("span");
+  dot.className = "coin-dot";
+  if (coin) {
+    dot.dataset.coinId = coin.id;
+    dot.setAttribute("role", "button");
+    dot.tabIndex = 0;
+    dot.setAttribute("aria-label", "Coin");
+    dot.addEventListener("pointerdown", event => beginStatisticsCoinDrag(event, dot));
+  }
+  return dot;
+}
+
+function beginStatisticsCoinDrag(event, node) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (isCelebrating()) return;
+  if (state.dragging) {
+    cancelActiveDrag();
+  }
+  const coin = state.statisticsCoins.find(item => item.id === node.dataset.coinId);
+  if (!coin) return;
+  const rect = node.getBoundingClientRect();
+  node.setPointerCapture(event.pointerId);
+  state.dragging = {
+    type: "statistics-coin",
+    id: coin.id,
+    node,
+    pointerId: event.pointerId,
+    offsetX: event.clientX - rect.left,
+    offsetY: event.clientY - rect.top,
+    originalLocation: coin.location
+  };
+  node.style.width = `${rect.width}px`;
+  node.style.height = `${rect.height}px`;
+  node.classList.add("dragging-coin");
+  document.body.append(node);
+  document.addEventListener("pointermove", moveStatisticsCoinDrag);
+  document.addEventListener("pointerup", endStatisticsCoinDrag);
+  document.addEventListener("pointercancel", cancelStatisticsCoinDrag);
+  moveStatisticsCoinDrag(event);
+}
+
+function moveStatisticsCoinDrag(event) {
+  if (!state.dragging || state.dragging.type !== "statistics-coin") return;
+  event.preventDefault();
+  const { node, offsetX, offsetY } = state.dragging;
+  node.style.left = `${event.clientX - offsetX}px`;
+  node.style.top = `${event.clientY - offsetY}px`;
+  markStatisticsCoinDropTarget(event.clientX, event.clientY);
+}
+
+function endStatisticsCoinDrag(event) {
+  if (!state.dragging || state.dragging.type !== "statistics-coin") return;
+  event.preventDefault();
+  const coin = state.statisticsCoins.find(item => item.id === state.dragging.id);
+  const target = getStatisticsCoinDropTarget(event.clientX, event.clientY);
+  if (coin && target?.type === "bank") {
+    coin.location = "bank";
+  } else if (coin && target?.type === "smiley") {
+    coin.location = target.id;
+  } else if (coin) {
+    coin.location = state.dragging.originalLocation;
+  }
+  cleanupStatisticsCoinDrag();
+  renderActiveStatisticsCoins();
+}
+
+function cancelStatisticsCoinDrag() {
+  if (!state.dragging || state.dragging.type !== "statistics-coin") return;
+  const coin = state.statisticsCoins.find(item => item.id === state.dragging.id);
+  if (coin) {
+    coin.location = state.dragging.originalLocation;
+  }
+  cleanupStatisticsCoinDrag();
+  renderActiveStatisticsCoins();
+}
+
+function cleanupStatisticsCoinDrag() {
+  if (!state.dragging || state.dragging.type !== "statistics-coin") return;
+  const { node, pointerId } = state.dragging;
+  if (node.hasPointerCapture(pointerId)) {
+    node.releasePointerCapture(pointerId);
+  }
+  document.removeEventListener("pointermove", moveStatisticsCoinDrag);
+  document.removeEventListener("pointerup", endStatisticsCoinDrag);
+  document.removeEventListener("pointercancel", cancelStatisticsCoinDrag);
+  node.classList.remove("dragging-coin");
+  node.removeAttribute("style");
+  node.remove();
+  state.dragging = null;
+  clearStatisticsCoinDropMarks();
+}
+
+function markStatisticsCoinDropTarget(x, y) {
+  clearStatisticsCoinDropMarks();
+  const target = getStatisticsCoinDropTarget(x, y);
+  if (target?.element) {
+    target.element.classList.add("is-over");
+  }
+}
+
+function clearStatisticsCoinDropMarks() {
+  els.statisticsCoinBank.classList.remove("is-over");
+  els.statisticsOrderZone.querySelectorAll(".smiley").forEach(node => node.classList.remove("is-over"));
+  els.statisticsOrderZone.querySelectorAll(".smiley-coin-drop-area").forEach(node => node.classList.remove("is-over"));
+  els.tray.querySelectorAll(".average-coin-pile").forEach(node => node.classList.remove("is-over"));
+}
+
+function getStatisticsCoinDropTarget(x, y) {
+  if (isPointInsideElement(els.statisticsCoinBank, x, y)) {
+    return { type: "bank", element: els.statisticsCoinBank };
+  }
+  const element = document.elementFromPoint(x, y);
+  const averagePile = element?.closest?.(".average-coin-pile");
+  if (averagePile) {
+    return { type: "smiley", id: averagePile.dataset.smileyId, element: averagePile };
+  }
+  const dropArea = element?.closest?.(".smiley-coin-drop-area");
+  if (dropArea) {
+    return { type: "smiley", id: dropArea.dataset.smileyId, element: dropArea };
+  }
+  const smiley = element?.closest?.(".statistics-order-zone .smiley");
+  if (smiley) {
+    return { type: "smiley", id: smiley.dataset.id, element: smiley.querySelector(".smiley-coin-drop-area") || smiley };
+  }
+  return null;
+}
+
+function renderActiveStatisticsCoins() {
+  if (state.statisticsStep === "average-only") {
+    renderAverageOnlySmileyCoins();
+    return;
+  }
+  renderStatisticsCoins();
+}
+
+function validateStatistics() {
+  if (state.statisticsStep === "beard-frequency") {
+    validateStatisticsFrequency();
+    return;
+  }
+  if (state.statisticsStep === "beard-ranking") {
+    validateStatisticsOrder();
+    return;
+  }
+  if (state.statisticsStep === "coins") {
+    if (state.statisticsCoinStep === "average-question" || state.statisticsCoinStep === "average-review") {
+      validateStatisticsCoinAverageGuess();
+      return;
+    }
+    if (state.statisticsCoinStep === "total-question") {
+      validateStatisticsCoinTotalGuess();
+      return;
+    }
+    if (!state.statisticsCoinsDistributed) {
+      validateStatisticsCoinsDistributed();
+      return;
+    }
+    return;
+  }
+  if (state.statisticsStep === "average-only") {
+    validateStatisticsAverageOnlyAnswer();
+    return;
+  }
+  validateStatisticsAnswer();
+}
+
+function validateStatisticsFrequency() {
+  const allSorted = state.smileys.every(smiley => smiley.zone.startsWith("statistics-beard-"));
+  const isCorrect = allSorted && state.smileys.every(smiley => smiley.zone === `statistics-beard-${smiley.beardLevel}`);
+  if (!isCorrect) {
+    state.statisticsHadMistake = true;
+    registerMistake({ returnSmileys: true });
+    return;
+  }
+  resetMistakeCounter();
+  state.statisticsStep = "beard-questions";
+  state.statisticsQuestionIndex = 0;
+  state.statisticsAnswer = null;
+  state.nextPlacementOrder = 1;
+  startStatisticsPhase(collectSmileyRects());
+}
+
+function validateStatisticsOrder() {
+  const ordered = getStatisticsOrderedSmileys();
+  const isCorrect = ordered.length === state.smileys.length &&
+    ordered.every((smiley, index, items) => index === 0 || items[index - 1].beardLevel >= smiley.beardLevel);
+  if (!isCorrect) {
+    state.statisticsHadMistake = true;
+    registerMistake();
+    return;
+  }
+  resetMistakeCounter();
+  state.statisticsStep = "ranking-questions";
+  state.statisticsQuestionIndex = 0;
+  state.statisticsAnswer = null;
+  renderStatistics();
+  renderSmileys();
+}
+
+function validateStatisticsAnswer() {
+  const expected = getCurrentStatisticsAnswer();
+  if (state.statisticsAnswer !== expected) {
+    state.statisticsHadMistake = true;
+    registerMistake();
+    return;
+  }
+  resetMistakeCounter();
+  state.statisticsAnswer = null;
+
+  if (state.statisticsStep === "beard-questions") {
+    const questions = getStatisticsBeardQuestions();
+    if (state.statisticsQuestionIndex + 1 < questions.length) {
+      state.statisticsQuestionIndex += 1;
+      renderStatistics();
+      renderSmileys();
+      return;
+    }
+    state.statisticsStep = "beard-ranking";
+    state.statisticsQuestionIndex = 0;
+    state.nextPlacementOrder = 1;
+    startStatisticsPhase(collectSmileyRects());
+    renderSmileys();
+    return;
+  }
+
+  if (state.statisticsStep === "ranking-questions") {
+    const questions = getStatisticsRankingQuestions();
+    if (state.statisticsQuestionIndex + 1 < questions.length) {
+      state.statisticsQuestionIndex += 1;
+      renderStatistics();
+      renderSmileys();
+      return;
+    }
+    state.statisticsStep = "coins";
+    state.smileys = addBeardLengthCoins(state.smileys);
+    initializeStatisticsCoins();
+    state.statisticsCoinStep = "average-question";
+    state.statisticsCoinsDistributed = false;
+    state.statisticsQuestionIndex = 0;
+    state.statisticsAnswer = null;
+    renderStatistics();
+    renderSmileys();
+    return;
+  }
+}
+
+function validateStatisticsCoinsDistributed() {
+  const mean = getStatisticsCoinMean();
+  const ordered = getStatisticsOrderedSmileys();
+  const isCorrect = ordered.every(smiley => countStatisticsCoinsAt(smiley.id) === mean) &&
+    countStatisticsCoinsAt("bank") === 0;
+  if (!isCorrect) {
+    state.statisticsHadMistake = true;
+    registerMistake();
+    return;
+  }
+  resetMistakeCounter();
+  state.statisticsCoinsDistributed = true;
+  state.statisticsAnswer = null;
+  state.statisticsCoinStep = "average-review";
+  renderStatistics();
+  renderSmileys();
+}
+
+function validateStatisticsCoinAverageGuess() {
+  if (state.statisticsAnswer === getStatisticsCoinMean()) {
+    resetMistakeCounter();
+    finishSet(collectSmileyRects());
+    return;
+  }
+  if (state.statisticsCoinStep === "average-review") {
+    state.statisticsHadMistake = true;
+    registerMistake();
+    return;
+  }
+  resetMistakeCounter();
+  state.statisticsAnswer = null;
+  state.statisticsCoinStep = "total-question";
+  renderStatistics();
+  renderSmileys();
+}
+
+function validateStatisticsAverageOnlyAnswer() {
+  if (state.statisticsAnswer !== getStatisticsCoinMean()) {
+    state.statisticsHadMistake = true;
+    registerMistake();
+    return;
+  }
+  resetMistakeCounter();
+  finishSet(collectSmileyRects());
+}
+
+function validateStatisticsCoinTotalGuess() {
+  if (state.statisticsAnswer !== getStatisticsCoinTotal()) {
+    state.statisticsHadMistake = true;
+    registerMistake();
+    return;
+  }
+  resetMistakeCounter();
+  state.statisticsAnswer = null;
+  state.statisticsCoinStep = "spreading";
+  renderStatistics();
+  renderSmileys();
+}
+
+function getCurrentStatisticsAnswer() {
+  if (state.statisticsStep === "beard-questions") {
+    return getStatisticsBeardQuestions()[state.statisticsQuestionIndex].answer;
+  }
+  if (state.statisticsStep === "ranking-questions") {
+    return getStatisticsRankingQuestions()[state.statisticsQuestionIndex].answer;
+  }
+  return null;
+}
+
+function getStatisticsBeardQuestions() {
+  const shortest = Math.min(...state.smileys.map(smiley => smiley.beardLevel));
+  const longest = Math.max(...state.smileys.map(smiley => smiley.beardLevel));
+  const mode = getBeardModeValue(state.smileys);
+  const choices = BEARD_LEVELS.map(level => ({ label: level.label, value: level.value }));
+  return [
+    { prompt: "Choose the beard icon that appears most.", answer: mode, choices },
+    { prompt: "Choose the longest beard icon that exists.", answer: longest, choices },
+    { prompt: "Choose the shortest beard icon that exists.", answer: shortest, choices }
+  ];
+}
+
+function getStatisticsRankingQuestions() {
+  const ordered = getStatisticsOrderedSmileys();
+  const beardChoices = BEARD_LEVELS.map(level => ({ label: level.label, value: level.value }));
+  const median = ordered[Math.floor(ordered.length / 2)];
+  return [
+    { prompt: "Choose the median beard icon.", answer: median?.beardLevel, choices: beardChoices }
+  ];
+}
+
+function getStatisticsCoinMean() {
+  return state.smileys.reduce((sum, smiley) => sum + smiley.coins, 0) / state.smileys.length;
+}
+
+function getStatisticsCoinTotal() {
+  return state.smileys.reduce((sum, smiley) => sum + smiley.coins, 0);
+}
+
+function countStatisticsCoinsAt(location) {
+  return state.statisticsCoins.filter(coin => coin.location === location).length;
+}
+
+function renderStatisticsCoinAverageQuestion() {
+  els.statisticsQuestion.textContent = "What is the average number of coins?";
+  renderStatisticsAnswerChoices(getStatisticsCoinAverageAnswerChoices(), getStatisticsCoinMean());
+}
+
+function renderStatisticsAverageOnlyQuestion() {
+  els.statisticsQuestion.textContent = "What is the average number of coins?";
+  renderStatisticsAnswerChoices(getStatisticsAverageOnlyAnswerChoices(), getStatisticsCoinMean());
+}
+
+function renderStatisticsCoinTotalQuestion() {
+  els.statisticsQuestion.textContent = "How many coins are there altogether?";
+  renderStatisticsAnswerChoices(getStatisticsCoinTotalAnswerChoices(), getStatisticsCoinTotal());
+}
+
+function getStatisticsCoinAverageAnswerChoices() {
+  const answer = getStatisticsCoinMean();
+  const values = new Set([answer]);
+  while (values.size < 3) {
+    values.add(Math.max(1, answer + Math.floor(Math.random() * 7) - 3));
+  }
+  return [
+    ...[...values].sort((first, second) => first - second).map(value => ({ label: String(value), value })),
+    { label: "doesn't know", value: "unknown" }
+  ];
+}
+
+function getStatisticsAverageOnlyAnswerChoices() {
+  const answer = getStatisticsCoinMean();
+  const values = new Set([answer]);
+  while (values.size < 4) {
+    values.add(Math.max(1, answer + Math.floor(Math.random() * 7) - 3));
+  }
+  return [...values].sort((first, second) => first - second).map(value => ({ label: String(value), value }));
+}
+
+function getStatisticsCoinTotalAnswerChoices() {
+  const answer = getStatisticsCoinTotal();
+  const values = new Set([answer]);
+  while (values.size < 4) {
+    values.add(Math.max(1, answer + Math.floor(Math.random() * 9) - 4));
+  }
+  return [...values].sort((first, second) => first - second).map(value => ({ label: String(value), value }));
+}
+
+function initializeStatisticsCoins() {
+  state.statisticsCoins = [];
+  getStatisticsOrderedSmileys().forEach(smiley => {
+    for (let index = 0; index < smiley.coins; index += 1) {
+      state.statisticsCoins.push({
+        id: `coin-${smiley.id}-${index}`,
+        location: smiley.id
+      });
+    }
+  });
+}
+
+function initializeAverageOnlyCoins() {
+  state.statisticsCoins = [];
+  state.smileys.forEach(smiley => {
+    for (let index = 0; index < smiley.coins; index += 1) {
+      state.statisticsCoins.push({
+        id: `coin-${smiley.id}-${index}`,
+        location: smiley.id
+      });
+    }
+  });
+}
+
+function getStatisticsOrderedSmileys() {
+  return state.smileys
+    .filter(smiley => smiley.zone === "statistics-order")
+    .sort((first, second) => first.placementOrder - second.placementOrder);
+}
+
 function startCarrollPhase(previousRects = null) {
   state.phase = "carroll";
   resetMistakeCounter();
@@ -1850,6 +2619,7 @@ function startCarrollPhase(previousRects = null) {
   });
   els.sortTable.classList.add("hidden");
   els.orderingPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
   resetCountChallenge();
   els.carrollPanel.classList.remove("hidden");
   els.comparePanel.classList.add("hidden");
@@ -1875,6 +2645,7 @@ function startComparePhase() {
   resetMistakeCounter();
   els.sortTable.classList.add("hidden");
   els.orderingPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
   els.carrollPanel.classList.add("hidden");
   els.selectionPanel.classList.add("hidden");
   els.simpleComparePanel.classList.add("hidden");
@@ -2180,6 +2951,7 @@ function startSimpleComparePhase() {
   resetMistakeCounter();
   els.sortTable.classList.add("hidden");
   els.orderingPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
   els.carrollPanel.classList.add("hidden");
   els.comparePanel.classList.add("hidden");
   els.permutationPanel.classList.add("hidden");
@@ -2353,6 +3125,7 @@ function startPermutationPhase() {
   state.nextPlacementOrder = state.smileys.length;
   els.sortTable.classList.add("hidden");
   els.orderingPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
   els.carrollPanel.classList.add("hidden");
   els.comparePanel.classList.add("hidden");
   els.simpleComparePanel.classList.add("hidden");
@@ -2632,6 +3405,7 @@ function startSelectionPhase(previousRects = null) {
   resetMistakeCounter();
   els.sortTable.classList.add("hidden");
   els.orderingPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
   els.carrollPanel.classList.add("hidden");
   els.comparePanel.classList.add("hidden");
   els.simpleComparePanel.classList.add("hidden");
@@ -2720,6 +3494,7 @@ function startCreatorPhase() {
   resetMistakeCounter();
   els.sortTable.classList.add("hidden");
   els.orderingPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
   els.carrollPanel.classList.add("hidden");
   els.comparePanel.classList.add("hidden");
   els.simpleComparePanel.classList.add("hidden");
@@ -2891,6 +3666,7 @@ function startVennPhase(previousRects = null) {
   });
   els.sortTable.classList.add("hidden");
   els.orderingPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
   els.carrollPanel.classList.add("hidden");
   els.comparePanel.classList.add("hidden");
   els.simpleComparePanel.classList.add("hidden");
@@ -2939,6 +3715,7 @@ function startImplicitPhase(previousRects = null) {
   });
   els.sortTable.classList.add("hidden");
   els.orderingPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
   els.carrollPanel.classList.add("hidden");
   els.vennPanel.classList.add("hidden");
   resetCountChallenge();
@@ -3377,7 +4154,7 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
 }
 
 function shouldReuseSmileysForNextCycle(mission) {
-  if (mission === "compare" || mission === "simple-compare" || mission === "creator" || mission === "permutation") return false;
+  if (mission === "compare" || mission === "simple-compare" || mission === "creator" || mission === "permutation" || mission === "statistics" || mission === "average") return false;
   return state.setCycle + 1 < state.reuseGoal;
 }
 
@@ -3422,6 +4199,10 @@ function startNextMissionRound(completedMission) {
     startVennMission(false, nextCount);
   } else if (completedMission === "implicit") {
     startImplicitMission(false, nextCount);
+  } else if (completedMission === "statistics") {
+    startStatisticsMission(false);
+  } else if (completedMission === "average") {
+    startAverageMission(false);
   } else {
     startSet(nextCount, false);
   }
@@ -3526,31 +4307,6 @@ function randomCountDifferentFrom(previousCount) {
 
 function currentFeature() {
   return state.activeFeatures[state.featureIndex];
-}
-
-function getZoneElement(zone) {
-  if (zone === "order") return els.orderingZone;
-  if (zone === "permutation-order") return els.permutationOrderZone;
-  if (zone === "with") return els.withZone;
-  if (zone === "without") return els.withoutZone;
-  if (zone === "carroll-with-with") return els.carrollWithWithZone;
-  if (zone === "carroll-without-with") return els.carrollWithoutWithZone;
-  if (zone === "carroll-with-without") return els.carrollWithWithoutZone;
-  if (zone === "carroll-without-without") return els.carrollWithoutWithoutZone;
-  if (zone === "venn-a") return els.vennAZone;
-  if (zone === "venn-b") return els.vennBZone;
-  if (zone === "venn-c") return els.vennCZone;
-  if (zone === "venn-ab") return els.vennABZone;
-  if (zone === "venn-ac") return els.vennACZone;
-  if (zone === "venn-bc") return els.vennBCZone;
-  if (zone === "venn-abc") return els.vennABCZone;
-  if (zone === "venn-outside") return els.vennOutsideZone;
-  if (zone === "selection-target") return els.selectionTargetZone;
-  if (zone === "implicit-a") return els.implicitAZone;
-  if (zone === "implicit-b") return els.implicitBZone;
-  if (zone === "implicit-ab") return els.implicitABZone;
-  if (zone === "implicit-outside") return els.implicitOutsideZone;
-  return els.tray;
 }
 
 init();
