@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=average-variable-count-20260708">
+    <link rel="stylesheet" href="styles.css?v=copyright-dedication-v12-20260718">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -91,6 +91,26 @@
               </span>
               <span class="mission-word" aria-hidden="true">Compare</span>
             </button>
+            <button class="mission-choice implicit-mission" type="button" id="implicitMissionButton" aria-label="Find the Rule">
+              <span class="implicit-sketch" aria-hidden="true">
+                <span>?</span><span>?</span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Find the Rule</span>
+            </button>
+            <button class="mission-choice counting-mission" type="button" id="countingMissionButton" aria-label="Count circle groups">
+              <span class="counting-sketch" aria-hidden="true">
+                <span></span><span></span><strong>?</strong>
+              </span>
+              <span class="mission-word" aria-hidden="true">Counting</span>
+            </button>
+            <button class="mission-choice ordering-mission" type="button" id="orderingMissionButton" aria-label="Order">
+              <span class="order-sketch" aria-hidden="true">
+                <span class="order-letter">A</span>
+                <span class="order-arrow"></span>
+                <span class="order-letter">Z</span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Order</span>
+            </button>
             <button class="mission-choice creator-mission" type="button" id="creatorMissionButton" aria-label="Create smileys">
               <span class="creator-sketch" aria-hidden="true">
                 <span></span><strong>+</strong>
@@ -102,20 +122,6 @@
                 <span></span><span></span><span></span><span></span>
               </span>
               <span class="mission-word" aria-hidden="true">Album</span>
-            </button>
-            <button class="mission-choice implicit-mission" type="button" id="implicitMissionButton" aria-label="Find the Rule">
-              <span class="implicit-sketch" aria-hidden="true">
-                <span>?</span><span>?</span>
-              </span>
-              <span class="mission-word" aria-hidden="true">Find the Rule</span>
-            </button>
-            <button class="mission-choice ordering-mission" type="button" id="orderingMissionButton" aria-label="Order">
-              <span class="order-sketch" aria-hidden="true">
-                <span class="order-letter">A</span>
-                <span class="order-arrow"></span>
-                <span class="order-letter">Z</span>
-              </span>
-              <span class="mission-word" aria-hidden="true">Order</span>
             </button>
             <button class="mission-choice statistics-mission" type="button" id="statisticsMissionButton" aria-label="Statistics">
               <span class="statistics-sketch" aria-hidden="true">
@@ -247,14 +253,14 @@
         <div class="venn-panel hidden" id="vennPanel">
           <p class="selection-diagram-caption">Smileys</p>
           <div class="venn-stage" id="vennStage" aria-label="Three circle sorting diagram">
-            <div class="venn-circle circle-a" aria-hidden="true">
-              <div class="venn-circle-head" id="vennAHead"></div>
+            <div class="venn-circle circle-a" data-venn-circle="a">
+              <button class="venn-circle-head" id="vennAHead" type="button" data-venn-category="a" aria-pressed="false"></button>
             </div>
-            <div class="venn-circle circle-b" aria-hidden="true">
-              <div class="venn-circle-head" id="vennBHead"></div>
+            <div class="venn-circle circle-b" data-venn-circle="b">
+              <button class="venn-circle-head" id="vennBHead" type="button" data-venn-category="b" aria-pressed="false"></button>
             </div>
-            <div class="venn-circle circle-c" aria-hidden="true">
-              <div class="venn-circle-head" id="vennCHead"></div>
+            <div class="venn-circle circle-c" data-venn-circle="c">
+              <button class="venn-circle-head" id="vennCHead" type="button" data-venn-category="c" aria-pressed="false"></button>
             </div>
             <div class="venn-zone zone-a-only" id="vennAZone" data-zone="venn-a" aria-label="Only first feature"></div>
             <div class="venn-zone zone-b-only" id="vennBZone" data-zone="venn-b" aria-label="Only second feature"></div>
@@ -277,11 +283,11 @@
 
         <div class="implicit-panel hidden" id="implicitPanel">
           <div class="implicit-stage" id="implicitStage" aria-label="Find the hidden circle rule">
-            <div class="implicit-circle implicit-circle-a">
-              <button class="implicit-rule-head" type="button" id="implicitAHead" aria-label="Choose left hidden rule"></button>
+            <div class="implicit-circle implicit-circle-a" data-venn-circle="a">
+              <button class="implicit-rule-head" type="button" id="implicitAHead" data-venn-category="a" aria-label="Choose left hidden rule" aria-pressed="false"></button>
             </div>
-            <div class="implicit-circle implicit-circle-b">
-              <button class="implicit-rule-head" type="button" id="implicitBHead" aria-label="Choose right hidden rule"></button>
+            <div class="implicit-circle implicit-circle-b" data-venn-circle="b">
+              <button class="implicit-rule-head" type="button" id="implicitBHead" data-venn-category="b" aria-label="Choose right hidden rule" aria-pressed="false"></button>
             </div>
             <div class="implicit-zone implicit-zone-a" id="implicitAZone" data-zone="implicit-a" aria-label="First hidden circle only"></div>
             <div class="implicit-zone implicit-zone-b" id="implicitBZone" data-zone="implicit-b" aria-label="Second hidden circle only"></div>
@@ -291,12 +297,43 @@
           </div>
         </div>
 
+        <div class="counting-panel hidden" id="countingPanel">
+          <div class="counting-stage" id="countingStage" aria-label="Count circle groups">
+            <div class="counting-circle counting-circle-a" data-venn-circle="a">
+              <button class="counting-circle-head" id="countingAHead" type="button" data-venn-category="a" aria-pressed="false"></button>
+            </div>
+            <div class="counting-circle counting-circle-b" data-venn-circle="b">
+              <button class="counting-circle-head" id="countingBHead" type="button" data-venn-category="b" aria-pressed="false"></button>
+            </div>
+            <div class="counting-clue counting-clue-a" id="countingAClue" data-zone="counting-a" aria-label="Left side only"></div>
+            <div class="counting-clue counting-clue-ab" id="countingABClue" data-zone="counting-ab" aria-label="Both circles"></div>
+            <div class="counting-clue counting-clue-b" id="countingBClue" data-zone="counting-b" aria-label="Right side only"></div>
+          </div>
+        </div>
+
         <div class="action-row">
+          <div class="counting-prompt" aria-label="Counting directions">
+            <p class="counting-question" id="countingQuestion"></p>
+            <div class="counting-answer-row" id="countingAnswers" aria-label="Counting answers"></div>
+          </div>
           <button class="primary-button submit-sort-button" type="button" id="submitSortButton">OK</button>
           <button class="secondary-button creator-finish-button" type="button" id="creatorFinishButton">Finish</button>
         </div>
 
       </section>
+
+      <footer class="copyright-note">
+        <button
+          class="copyright-dedication"
+          type="button"
+          id="copyrightDedication"
+          aria-describedby="dedicationTitle"
+          title="Dedicated to Michelle Denin"
+        >
+          <span>Copyright &copy; 2026 Alex Shifrin. All rights reserved.</span>
+          <span class="dedication-title" id="dedicationTitle" role="tooltip">Dedicated to Michelle Denin</span>
+        </button>
+      </footer>
     </main>
 
     <div class="celebration hidden" id="celebration" aria-live="polite" aria-label="Correct cycle complete">
@@ -317,7 +354,7 @@
       </button>
     </template>
 
-    <script type="module" src="app.js?v=average-variable-count-20260708"></script>
+    <script type="module" src="app.js?v=copyright-dedication-v12-20260718"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {

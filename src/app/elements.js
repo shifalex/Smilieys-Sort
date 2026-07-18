@@ -13,6 +13,7 @@ export const els = {
   selectionMissionButton: document.querySelector("#selectionMissionButton"),
   creatorMissionButton: document.querySelector("#creatorMissionButton"),
   vennMissionButton: document.querySelector("#vennMissionButton"),
+  countingMissionButton: document.querySelector("#countingMissionButton"),
   implicitMissionButton: document.querySelector("#implicitMissionButton"),
   withNumbersButton: document.querySelector("#withNumbersButton"),
   withoutNumbersButton: document.querySelector("#withoutNumbersButton"),
@@ -91,6 +92,16 @@ export const els = {
   vennBCZone: document.querySelector("#vennBCZone"),
   vennABCZone: document.querySelector("#vennABCZone"),
   vennOutsideZone: document.querySelector("#vennOutsideZone"),
+  countingPanel: document.querySelector("#countingPanel"),
+  countingStage: document.querySelector("#countingStage"),
+  countingAHead: document.querySelector("#countingAHead"),
+  countingBHead: document.querySelector("#countingBHead"),
+  countingAClue: document.querySelector("#countingAClue"),
+  countingBClue: document.querySelector("#countingBClue"),
+  countingABClue: document.querySelector("#countingABClue"),
+  countingUnionClue: document.querySelector("#countingUnionClue"),
+  countingQuestion: document.querySelector("#countingQuestion"),
+  countingAnswers: document.querySelector("#countingAnswers"),
   implicitPanel: document.querySelector("#implicitPanel"),
   implicitAHead: document.querySelector("#implicitAHead"),
   implicitBHead: document.querySelector("#implicitBHead"),
@@ -126,6 +137,9 @@ export function getAllDropContainers() {
     els.vennBCZone,
     els.vennABCZone,
     els.vennOutsideZone,
+    els.countingAClue,
+    els.countingBClue,
+    els.countingABClue,
     els.implicitAZone,
     els.implicitBZone,
     els.implicitABZone,
@@ -154,6 +168,9 @@ export function getZoneElement(zone) {
   if (zone === "venn-bc") return els.vennBCZone;
   if (zone === "venn-abc") return els.vennABCZone;
   if (zone === "venn-outside") return els.vennOutsideZone;
+  if (zone === "counting-a") return els.countingAClue;
+  if (zone === "counting-b") return els.countingBClue;
+  if (zone === "counting-ab") return els.countingABClue;
   if (zone === "selection-target") return els.selectionTargetZone;
   if (zone === "implicit-a") return els.implicitAZone;
   if (zone === "implicit-b") return els.implicitBZone;

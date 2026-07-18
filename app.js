@@ -26,6 +26,9 @@ import { els, getAllDropContainers, getZoneElement } from "./src/app/elements.js
 import { setHeader, setProgress } from "./src/app/header.js";
 import { state } from "./src/app/state.js";
 
+const vennLightingStates = new WeakMap();
+let vennLightingSequence = 0;
+
 function init() {
   for (let count = 2; count <= 10; count += 1) {
     const button = document.createElement("button");
@@ -45,6 +48,7 @@ function init() {
   els.selectionMissionButton.addEventListener("click", () => startSelectionMission());
   els.creatorMissionButton.addEventListener("click", () => startCreatorMission());
   els.vennMissionButton.addEventListener("click", () => startVennMission());
+  els.countingMissionButton?.addEventListener("click", () => startCountingMission());
   els.implicitMissionButton.addEventListener("click", () => startImplicitMission());
   els.statisticsMissionButton.addEventListener("click", () => startStatisticsMission());
   (els.averageMissionButton || document.querySelector("#averageMissionButton"))?.addEventListener("click", () => startAverageMission());
@@ -53,6 +57,7 @@ function init() {
   els.creatorResetButton.addEventListener("click", () => resetCreatorCurrent());
   els.implicitAHead.addEventListener("click", () => openImplicitChoiceList(0));
   els.implicitBHead.addEventListener("click", () => openImplicitChoiceList(1));
+  setupVennLighting();
   els.modePanel.classList.toggle("hidden", !SHOW_NUMBER_TOGGLE);
   els.withNumbersButton.addEventListener("click", () => chooseMode(true));
   els.withoutNumbersButton.addEventListener("click", () => chooseMode(false));
@@ -60,13 +65,331 @@ function init() {
   if (els.newSetButton) {
     els.newSetButton.addEventListener("click", () => showSetup());
   }
+  setupCopyrightDedication();
   els.submitSortButton.addEventListener("click", () => validateCurrentPhase());
   document.addEventListener("keydown", event => {
     if (event.key !== "Enter" || els.workPanel.classList.contains("hidden")) return;
+    if (event.target instanceof Element && event.target.closest("button, input, select, textarea")) return;
     if (isCelebrating()) return;
     event.preventDefault();
     validateCurrentPhase();
   });
+}
+
+function setupCopyrightDedication() {
+  const dedication = document.querySelector("#copyrightDedication");
+  if (!dedication) return;
+
+  dedication.addEventListener("click", event => {
+    event.stopPropagation();
+    dedication.classList.toggle("is-open");
+  });
+
+  document.addEventListener("click", event => {
+    if (event.target instanceof Node && dedication.contains(event.target)) return;
+    dedication.classList.remove("is-open");
+  });
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      dedication.classList.remove("is-open");
+    }
+  });
+}
+
+function setupVennLighting() {
+  [
+    { stage: els.vennStage, zoneSelector: ".venn-zone", zonePrefix: "venn-" },
+    { stage: els.implicitStage, zoneSelector: ".implicit-zone", zonePrefix: "implicit-" },
+    { stage: els.countingStage, zoneSelector: ".counting-clue", zonePrefix: "counting-" }
+  ].forEach(config => setupVennLightingStage(config));
+}
+
+function setupVennLightingStage({ stage, zoneSelector, zonePrefix }) {
+  if (!stage) return;
+
+  const areaOverlay = createVennAreaOverlay(`venn-area-${vennLightingSequence += 1}`);
+  stage.prepend(areaOverlay.svg);
+  const lighting = {
+    stage,
+    circles: [...stage.querySelectorAll("[data-venn-circle]")],
+    heads: [...stage.querySelectorAll("[data-venn-category]")],
+    zones: [...stage.querySelectorAll(zoneSelector)],
+    areaOverlay,
+    zoneSelector,
+    zonePrefix,
+    hover: null,
+    focus: null,
+    pinned: null
+  };
+  vennLightingStates.set(stage, lighting);
+
+  lighting.heads.forEach(head => {
+    const descriptor = { type: "circle", key: head.dataset.vennCategory };
+    head.addEventListener("focus", () => setVennLightingPreview(lighting, "focus", descriptor));
+    head.addEventListener("blur", () => clearVennLightingPreview(lighting, "focus", descriptor));
+    head.addEventListener("click", event => {
+      event.stopPropagation();
+      if (event.detail > 0) lighting.hover = descriptor;
+      togglePinnedVennLighting(lighting, descriptor);
+    });
+  });
+
+  lighting.zones.forEach(zone => {
+    const descriptor = {
+      type: "region",
+      key: zone.dataset.zone?.replace(zonePrefix, "") || "outside"
+    };
+    zone.addEventListener("focusin", () => setVennLightingPreview(lighting, "focus", descriptor));
+    zone.addEventListener("focusout", event => {
+      if (event.relatedTarget instanceof Node && zone.contains(event.relatedTarget)) return;
+      clearVennLightingPreview(lighting, "focus", descriptor);
+    });
+    zone.addEventListener("click", event => {
+      if (event.target instanceof Element && event.target.closest(".smiley")) return;
+      event.stopPropagation();
+      if (event.detail > 0) lighting.hover = descriptor;
+      togglePinnedVennLighting(lighting, descriptor);
+    });
+  });
+
+  stage.addEventListener("pointerover", event => updateVennLightingHover(lighting, event.target));
+  stage.addEventListener("pointermove", event => updateVennLightingHover(lighting, event.target));
+  stage.addEventListener("pointerleave", () => {
+    if (!lighting.hover) return;
+    lighting.hover = null;
+    renderVennLighting(lighting);
+  });
+  stage.addEventListener("click", event => {
+    if (event.target !== stage) return;
+    lighting.pinned = null;
+    renderVennLighting(lighting);
+  });
+
+  if ("ResizeObserver" in window) {
+    lighting.resizeObserver = new ResizeObserver(() => {
+      const active = lighting.hover || lighting.focus || lighting.pinned;
+      renderVennAreaOverlay(lighting, active?.type === "region" ? active.key : null);
+    });
+    lighting.resizeObserver.observe(stage);
+  }
+
+  renderVennLighting(lighting);
+}
+
+function createVennAreaOverlay(id) {
+  const svg = createSvgElement("svg");
+  svg.classList.add("venn-area-overlay");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("preserveAspectRatio", "none");
+
+  const defs = createSvgElement("defs");
+  const mask = createSvgElement("mask");
+  mask.id = `${id}-mask`;
+  mask.setAttribute("maskUnits", "userSpaceOnUse");
+  mask.setAttribute("maskContentUnits", "userSpaceOnUse");
+  mask.setAttribute("mask-type", "luminance");
+  defs.append(mask);
+
+  const fill = createSvgElement("rect");
+  fill.classList.add("venn-area-fill");
+  fill.setAttribute("mask", `url(#${mask.id})`);
+  svg.append(defs, fill);
+  return { svg, defs, mask, fill, id };
+}
+
+function createSvgElement(tagName) {
+  return document.createElementNS("http://www.w3.org/2000/svg", tagName);
+}
+
+function createSvgRect(width, height, fill) {
+  const rect = createSvgElement("rect");
+  rect.setAttribute("x", "0");
+  rect.setAttribute("y", "0");
+  rect.setAttribute("width", String(width));
+  rect.setAttribute("height", String(height));
+  rect.setAttribute("fill", fill);
+  return rect;
+}
+
+function createSvgCircle(circle, fill) {
+  const node = createSvgElement("circle");
+  node.setAttribute("cx", String(circle.x));
+  node.setAttribute("cy", String(circle.y));
+  node.setAttribute("r", String(circle.radius));
+  node.setAttribute("fill", fill);
+  return node;
+}
+
+function updateVennLightingHover(lighting, target) {
+  const descriptor = getVennLightingDescriptorForTarget(lighting, target);
+  if (!descriptor || matchesVennLighting(lighting.hover, descriptor)) return;
+  lighting.hover = descriptor;
+  renderVennLighting(lighting);
+}
+
+function getVennLightingDescriptorForTarget(lighting, target) {
+  if (!(target instanceof Element)) return null;
+  const head = target.closest("[data-venn-category]");
+  if (head && lighting.stage.contains(head)) {
+    return { type: "circle", key: head.dataset.vennCategory };
+  }
+  const zone = target.closest(lighting.zoneSelector);
+  if (zone && lighting.stage.contains(zone)) {
+    return {
+      type: "region",
+      key: zone.dataset.zone?.replace(lighting.zonePrefix, "") || "outside"
+    };
+  }
+  return null;
+}
+
+function setVennLightingPreview(lighting, previewType, descriptor) {
+  lighting[previewType] = descriptor;
+  renderVennLighting(lighting);
+}
+
+function clearVennLightingPreview(lighting, previewType, descriptor) {
+  if (!matchesVennLighting(lighting[previewType], descriptor)) return;
+  lighting[previewType] = null;
+  renderVennLighting(lighting);
+}
+
+function togglePinnedVennLighting(lighting, descriptor) {
+  if (!matchesVennLighting(lighting.focus, descriptor)) {
+    lighting.focus = null;
+  }
+  lighting.pinned = matchesVennLighting(lighting.pinned, descriptor) ? null : descriptor;
+  renderVennLighting(lighting);
+}
+
+function matchesVennLighting(first, second) {
+  return Boolean(first && second && first.type === second.type && first.key === second.key);
+}
+
+function renderVennLighting(lighting) {
+  const active = lighting.hover || lighting.focus || lighting.pinned;
+  const activeCircle = active?.type === "circle" ? active.key : null;
+  const activeRegion = active?.type === "region" ? active.key : null;
+
+  lighting.stage.classList.toggle("has-venn-light", Boolean(active));
+  lighting.stage.classList.toggle("has-venn-circle-light", Boolean(activeCircle));
+  lighting.stage.classList.toggle("has-venn-region-light", Boolean(activeRegion));
+
+  lighting.circles.forEach(circle => {
+    const key = circle.dataset.vennCircle;
+    circle.classList.toggle("is-venn-circle-lit", activeCircle === key);
+  });
+
+  lighting.heads.forEach(head => {
+    const descriptor = { type: "circle", key: head.dataset.vennCategory };
+    head.classList.toggle("is-venn-category-lit", matchesVennLighting(active, descriptor));
+    head.classList.toggle("is-venn-pinned", matchesVennLighting(lighting.pinned, descriptor));
+    head.setAttribute("aria-pressed", String(matchesVennLighting(lighting.pinned, descriptor)));
+  });
+
+  lighting.zones.forEach(zone => {
+    const descriptor = {
+      type: "region",
+      key: zone.dataset.zone?.replace(lighting.zonePrefix, "") || "outside"
+    };
+    zone.classList.toggle("is-venn-region-lit", matchesVennLighting(active, descriptor));
+    zone.classList.toggle("is-venn-pinned", matchesVennLighting(lighting.pinned, descriptor));
+  });
+
+  renderVennAreaOverlay(lighting, activeRegion);
+}
+
+function renderVennAreaOverlay(lighting, activeRegion) {
+  const { svg, defs, mask, fill, id } = lighting.areaOverlay;
+  if (!activeRegion) {
+    svg.classList.remove("is-visible");
+    return;
+  }
+
+  const overlayRect = svg.getBoundingClientRect();
+  if (!overlayRect.width || !overlayRect.height) {
+    svg.classList.remove("is-visible");
+    return;
+  }
+
+  const circles = lighting.circles
+    .filter(circle => getComputedStyle(circle).display !== "none")
+    .map(circle => {
+      const rect = circle.getBoundingClientRect();
+      const borderWidth = Number.parseFloat(getComputedStyle(circle).borderLeftWidth) || 0;
+      return {
+        key: circle.dataset.vennCircle,
+        x: rect.left - overlayRect.left + (rect.width / 2),
+        y: rect.top - overlayRect.top + (rect.height / 2),
+        radius: Math.max(0, (Math.min(rect.width, rect.height) / 2) - (borderWidth / 2))
+      };
+    })
+    .filter(circle => circle.key && circle.radius > 0);
+  const circleByKey = new Map(circles.map(circle => [circle.key, circle]));
+
+  svg.setAttribute("viewBox", `0 0 ${overlayRect.width} ${overlayRect.height}`);
+  fill.setAttribute("x", "0");
+  fill.setAttribute("y", "0");
+  fill.setAttribute("width", String(overlayRect.width));
+  fill.setAttribute("height", String(overlayRect.height));
+
+  [...defs.querySelectorAll("clipPath")].forEach(clip => clip.remove());
+  circles.forEach(circle => {
+    const clip = createSvgElement("clipPath");
+    clip.id = `${id}-clip-${circle.key}`;
+    clip.setAttribute("clipPathUnits", "userSpaceOnUse");
+    clip.append(createSvgCircle(circle, "#ffffff"));
+    defs.insertBefore(clip, mask);
+  });
+
+  mask.replaceChildren(createSvgRect(
+    overlayRect.width,
+    overlayRect.height,
+    activeRegion === "outside" ? "#ffffff" : "#000000"
+  ));
+
+  if (activeRegion === "outside") {
+    circles.forEach(circle => mask.append(createSvgCircle(circle, "#000000")));
+  } else {
+    const includedKeys = [...activeRegion].filter(key => circleByKey.has(key));
+    if (!includedKeys.length) {
+      svg.classList.remove("is-visible");
+      return;
+    }
+
+    let parent = mask;
+    includedKeys.slice(0, -1).forEach(key => {
+      const clippedGroup = createSvgElement("g");
+      clippedGroup.setAttribute("clip-path", `url(#${id}-clip-${key})`);
+      parent.append(clippedGroup);
+      parent = clippedGroup;
+    });
+    parent.append(createSvgCircle(circleByKey.get(includedKeys[includedKeys.length - 1]), "#ffffff"));
+
+    circles
+      .filter(circle => !includedKeys.includes(circle.key))
+      .forEach(circle => mask.append(createSvgCircle(circle, "#000000")));
+  }
+
+  const activeZone = lighting.zones.find(zone =>
+    (zone.dataset.zone?.replace(lighting.zonePrefix, "") || "outside") === activeRegion
+  );
+  const regionColor = activeZone
+    ? getComputedStyle(activeZone).getPropertyValue("--venn-region-rgb").trim()
+    : "222, 184, 72";
+  fill.setAttribute("fill", `rgb(${regionColor})`);
+  fill.setAttribute("fill-opacity", activeRegion.length === 1 || activeRegion === "outside" ? "0.3" : "0.34");
+  svg.classList.add("is-visible");
+}
+
+function clearVennLighting(stage) {
+  const lighting = vennLightingStates.get(stage);
+  if (!lighting) return;
+  lighting.hover = null;
+  lighting.focus = null;
+  lighting.pinned = null;
+  renderVennLighting(lighting);
 }
 
 function chooseFeatureMission() {
@@ -100,6 +423,9 @@ function startSet(count, clearPendingTimers = true) {
   state.activeCarrollCriteria = [];
   state.activeVennCriteria = [];
   state.activeImplicitCriteria = [];
+  state.countingChallenge = null;
+  state.countingAnswer = null;
+  state.countingHadMistake = false;
   resetImplicitGuessState();
   resetCompareState();
   state.countChallenge = null;
@@ -148,7 +474,7 @@ function startStatisticsMission(clearPendingTimers = true) {
   }
   els.workPanel.classList.remove("cycle-fading-out");
   state.mission = "statistics";
-  state.requestedCount = [7, 9, 11][Math.floor(Math.random() * 3)];
+  state.requestedCount = 7;
   state.phase = "statistics";
   state.statisticsStep = "beard-frequency";
   state.statisticsQuestionIndex = 0;
@@ -424,6 +750,41 @@ function startVennMission(clearPendingTimers = true, count = getDefaultSmileyCou
   startVennPhase();
 }
 
+function startCountingMission(clearPendingTimers = true) {
+  if (clearPendingTimers) {
+    clearCycleTimers();
+  }
+  els.workPanel.classList.remove("cycle-fading-out");
+  state.mission = "counting";
+  state.phase = "counting";
+  state.featureIndex = 0;
+  state.nextPlacementOrder = 1;
+  const setup = makeCountingSet();
+  state.requestedCount = setup.smileys.length;
+  state.smileys = setup.smileys;
+  state.activeFeatures = [];
+  state.activeOrderingCriteria = [];
+  state.activeCarrollCriteria = [];
+  state.activeVennCriteria = setup.criteria;
+  state.activeImplicitCriteria = [];
+  state.countingChallenge = setup.challenge;
+  state.countingAnswer = null;
+  state.countingHadMistake = false;
+  state.countingLastVariant = setup.challenge.variant;
+  resetImplicitGuessState();
+  resetCompareState();
+  resetSelectionState();
+  resetCreatorState();
+  state.countChallenge = null;
+  state.setCycle = 0;
+  state.reuseGoal = 1;
+  resetMistakeCounter();
+  els.setupPanel.classList.add("hidden");
+  els.workPanel.classList.remove("hidden");
+  els.backButton.classList.remove("hidden");
+  startCountingPhase();
+}
+
 function startImplicitMission(clearPendingTimers = true, count = getDefaultSmileyCount()) {
   if (clearPendingTimers) {
     clearCycleTimers();
@@ -476,6 +837,8 @@ function showSetup() {
   state.selectionLevel = 1;
   state.creatorLevel = 1;
   state.permutationLevel = 1;
+  state.countingLevel = 1;
+  state.countingLastVariant = null;
   state.statisticsStep = "beard-frequency";
   state.statisticsQuestionIndex = 0;
   state.statisticsAnswer = null;
@@ -495,6 +858,7 @@ function showSetup() {
   state.featureIndex = 0;
   els.workPanel.classList.add("hidden");
   els.statisticsPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
   els.setupPanel.classList.remove("hidden");
   els.backButton.classList.add("hidden");
   els.missionPanel.classList.remove("hidden");
@@ -521,6 +885,7 @@ function startFeature(previousRects = null) {
   els.creatorPanel.classList.add("hidden");
   els.vennPanel.classList.add("hidden");
   els.implicitPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
   els.trayLabel.textContent = "Smileys";
   if (els.featurePrompt) {
     els.featurePrompt.replaceChildren(createFeatureIcon(feature));
@@ -617,6 +982,51 @@ function getVennCriterionCount() {
 
 function getSelectionCriterionCount() {
   return 2;
+}
+
+function makeCountingSet() {
+  const challenge = makeCountingChallenge();
+  const selected = shuffle(makeAllSmileyCombinations()).slice(0, challenge.union);
+  return {
+    smileys: makePlayableSmileys(shuffle(selected)),
+    criteria: [],
+    challenge
+  };
+}
+
+function makeCountingChallenge() {
+  const pattern = shuffle([
+    "partial-overlap",
+    "blue-contained",
+    "green-contained",
+    "disjoint"
+  ])[0];
+  let aOnly = 1 + Math.floor(Math.random() * 3);
+  let bOnly = 1 + Math.floor(Math.random() * 3);
+  let intersection = 1 + Math.floor(Math.random() * 3);
+
+  if (pattern === "blue-contained") {
+    aOnly = 0;
+    bOnly = 1 + Math.floor(Math.random() * 4);
+    intersection = 1 + Math.floor(Math.random() * 4);
+  } else if (pattern === "green-contained") {
+    aOnly = 1 + Math.floor(Math.random() * 4);
+    bOnly = 0;
+    intersection = 1 + Math.floor(Math.random() * 4);
+  } else if (pattern === "disjoint") {
+    aOnly = 1 + Math.floor(Math.random() * 4);
+    bOnly = 1 + Math.floor(Math.random() * 4);
+    intersection = 0;
+  }
+
+  const union = aOnly + bOnly + intersection;
+  const leftTotal = aOnly + intersection;
+  const rightTotal = bOnly + intersection;
+  const variant = "circle-totals";
+  const mode = "find-intersection";
+  const expected = intersection;
+  const answerChoices = variant === "parts" ? getCountingAnswerChoices(expected) : [];
+  return { aOnly, bOnly, intersection, union, leftTotal, rightTotal, mode, variant, pattern, answerChoices };
 }
 
 function chooseSelectionSourceZone() {
@@ -822,6 +1232,9 @@ function renderSmileys(excludedId = null) {
   if (!excludedId && state.phase === "statistics" && state.statisticsStep === "average-only") {
     renderAverageOnlySmileyCoins();
   }
+  if (!excludedId && state.phase === "counting") {
+    renderCounting();
+  }
 }
 
 function createOrderPlaceholder() {
@@ -857,7 +1270,8 @@ function zoneRank(zone) {
   if (zone === "without") return 2;
   if (zone.startsWith("carroll")) return 3;
   if (zone.startsWith("venn")) return 4;
-  if (zone.startsWith("implicit")) return 5;
+  if (zone.startsWith("counting")) return 5;
+  if (zone.startsWith("implicit")) return 6;
   if (zone === "selection-target") return 6;
   if (zone === "permutation-order") return 7;
   return 3;
@@ -872,6 +1286,7 @@ function createSmileyNode(smiley) {
   node.classList.toggle("neutral", smiley.expression === "neutral");
   node.classList.toggle("has-hat", smiley.hat);
   node.classList.toggle("has-ears", smiley.ears);
+  node.classList.toggle("counting-dull", state.phase === "counting");
   if (Number.isInteger(smiley.beardLevel)) {
     node.classList.add("has-beard", `beard-${smiley.beardLevel}`);
     const beard = document.createElement("span");
@@ -896,7 +1311,11 @@ function describeSmiley(smiley) {
 function beginDrag(event, node) {
   event.preventDefault();
   if (isCelebrating()) return;
-  if (state.phase === "statistics" && ["coins", "average-only"].includes(state.statisticsStep)) return;
+  if (state.phase === "statistics" && state.statisticsStep === "average-only") {
+    beginAverageSmileyDrag(event, node);
+    return;
+  }
+  if (state.phase === "statistics" && state.statisticsStep === "coins") return;
   if (state.dragging) {
     cancelActiveDrag();
   }
@@ -928,6 +1347,10 @@ function beginDrag(event, node) {
 
 function cancelActiveDrag() {
   if (!state.dragging) return;
+  if (state.dragging.type === "average-smiley") {
+    cancelAverageSmileyDrag();
+    return;
+  }
   if (state.dragging.type === "statistics-coin") {
     cancelStatisticsCoinDrag();
     return;
@@ -941,6 +1364,116 @@ function cancelActiveDrag() {
     return;
   }
   cancelDrag();
+}
+
+function beginAverageSmileyDrag(event, smileyNode) {
+  if (state.dragging) {
+    cancelActiveDrag();
+  }
+  const pair = smileyNode.closest(".average-pair");
+  const smiley = state.smileys.find(item => item.id === smileyNode.dataset.id);
+  if (!pair || !smiley) return;
+
+  const rect = pair.getBoundingClientRect();
+  const placeholder = document.createElement("div");
+  placeholder.className = "average-drop-placeholder";
+  placeholder.setAttribute("aria-hidden", "true");
+  placeholder.style.height = `${rect.height}px`;
+  pair.before(placeholder);
+  document.body.append(pair);
+  smileyNode.setPointerCapture(event.pointerId);
+  state.dragging = {
+    type: "average-smiley",
+    id: smiley.id,
+    node: pair,
+    captureNode: smileyNode,
+    placeholder,
+    pointerId: event.pointerId,
+    offsetX: event.clientX - rect.left,
+    offsetY: event.clientY - rect.top,
+    originalPlacementOrder: smiley.placementOrder
+  };
+  pair.style.width = `${rect.width}px`;
+  pair.style.height = `${rect.height}px`;
+  pair.classList.add("dragging-average-pair");
+  document.addEventListener("pointermove", moveAverageSmileyDrag);
+  document.addEventListener("pointerup", endAverageSmileyDrag);
+  document.addEventListener("pointercancel", cancelAverageSmileyDrag);
+  moveAverageSmileyDrag(event);
+}
+
+function moveAverageSmileyDrag(event) {
+  if (!state.dragging || state.dragging.type !== "average-smiley") return;
+  event.preventDefault();
+  const { node, offsetX, offsetY, placeholder } = state.dragging;
+  node.style.left = `${event.clientX - offsetX}px`;
+  node.style.top = `${event.clientY - offsetY}px`;
+  els.tray.classList.toggle("is-over", isPointInsideElement(els.tray, event.clientX, event.clientY));
+
+  if (!isPointInsideElement(els.tray, event.clientX, event.clientY)) return;
+  const rows = [...els.tray.querySelectorAll(".average-pair")];
+  const closest = rows
+    .map((row, index) => {
+      const rect = row.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      return {
+        index,
+        row,
+        rect,
+        distance: Math.hypot(event.clientX - centerX, event.clientY - centerY)
+      };
+    })
+    .sort((first, second) => first.distance - second.distance)[0];
+  if (!closest) {
+    els.tray.append(placeholder);
+    return;
+  }
+  const centerX = closest.rect.left + closest.rect.width / 2;
+  const centerY = closest.rect.top + closest.rect.height / 2;
+  const sameVisualRow = Math.abs(event.clientY - centerY) <= closest.rect.height / 2;
+  const insertAfter = sameVisualRow ? event.clientX > centerX : event.clientY > centerY;
+  const nextRow = rows[closest.index + (insertAfter ? 1 : 0)];
+  els.tray.insertBefore(placeholder, nextRow || null);
+}
+
+function endAverageSmileyDrag(event) {
+  if (!state.dragging || state.dragging.type !== "average-smiley") return;
+  event.preventDefault();
+  const smiley = state.smileys.find(item => item.id === state.dragging.id);
+  if (smiley && isPointInsideElement(els.tray, event.clientX, event.clientY)) {
+    const insertIndex = [...els.tray.children].indexOf(state.dragging.placeholder);
+    const ordered = state.smileys
+      .filter(item => item.id !== smiley.id)
+      .sort((first, second) => first.placementOrder - second.placementOrder);
+    ordered.splice(Math.max(0, insertIndex), 0, smiley);
+    ordered.forEach((item, index) => {
+      item.placementOrder = index;
+    });
+  }
+  cleanupAverageSmileyDrag();
+  renderSmileys();
+}
+
+function cancelAverageSmileyDrag() {
+  if (!state.dragging || state.dragging.type !== "average-smiley") return;
+  cleanupAverageSmileyDrag();
+  renderSmileys();
+}
+
+function cleanupAverageSmileyDrag() {
+  if (!state.dragging || state.dragging.type !== "average-smiley") return;
+  const { node, captureNode, placeholder, pointerId } = state.dragging;
+  if (captureNode.hasPointerCapture(pointerId)) {
+    captureNode.releasePointerCapture(pointerId);
+  }
+  document.removeEventListener("pointermove", moveAverageSmileyDrag);
+  document.removeEventListener("pointerup", endAverageSmileyDrag);
+  document.removeEventListener("pointercancel", cancelAverageSmileyDrag);
+  placeholder.remove();
+  node.remove();
+  els.tray.classList.remove("is-over");
+  state.dragging = null;
 }
 
 function moveDrag(event) {
@@ -1248,6 +1781,12 @@ function getDropTarget(x, y) {
       .find(zone => isPointInsideElement(zone, x, y));
     if (implicitTarget) return implicitTarget;
   }
+  if (state.phase === "counting") {
+    const countingTarget = getAllDropContainers()
+      .filter(zone => zone.classList.contains("counting-clue") || zone.classList.contains("smiley-tray"))
+      .find(zone => isPointInsideElement(zone, x, y));
+    if (countingTarget) return countingTarget;
+  }
   if (state.phase === "selection") {
     const selectionTarget = getAllDropContainers()
       .filter(zone => zone.classList.contains("venn-zone") || zone.classList.contains("selection-target-zone"))
@@ -1270,6 +1809,9 @@ function getDropTarget(x, y) {
   }
   if (state.phase === "implicit") {
     return element.closest(".implicit-zone, .smiley-tray");
+  }
+  if (state.phase === "counting") {
+    return element.closest(".counting-clue, .smiley-tray");
   }
   if (state.phase === "statistics") {
     return element.closest(".statistics-beard-zone, .statistics-order-zone, .smiley-tray");
@@ -1317,6 +1859,10 @@ function validateCurrentPhase() {
   }
   if (state.phase === "venn") {
     validateVenn();
+    return;
+  }
+  if (state.phase === "counting") {
+    validateCounting();
     return;
   }
   if (state.phase === "implicit") {
@@ -1414,6 +1960,8 @@ function signalIncorrect() {
         ? els.creatorPanel
       : state.phase === "venn"
         ? els.vennPanel
+      : state.phase === "counting"
+        ? els.countingPanel
       : state.phase === "implicit"
         ? els.implicitPanel
       : state.phase === "statistics"
@@ -1827,6 +2375,7 @@ function startOrderingPhase(previousRects = null) {
   els.creatorPanel.classList.add("hidden");
   els.vennPanel.classList.add("hidden");
   els.implicitPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
   els.trayLabel.textContent = "Smileys";
   els.criteriaList.replaceChildren(createOrderingCriteriaChain(state.activeOrderingCriteria));
   els.criteriaList.setAttribute("aria-label", `Ordering criteria: ${state.activeOrderingCriteria.map(criterion => criterion.label).join(", then ")}`);
@@ -1853,6 +2402,7 @@ function startStatisticsPhase(previousRects = null) {
   els.creatorPanel.classList.add("hidden");
   els.vennPanel.classList.add("hidden");
   els.implicitPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
   els.statisticsPanel.classList.remove("hidden");
   els.tray.dataset.count = String(state.smileys.length);
   els.trayLabel.textContent = state.statisticsStep === "beard-frequency" || state.statisticsStep === "average-only" ? "Smileys" : "";
@@ -1872,6 +2422,7 @@ function renderStatistics() {
   els.statisticsCoinStage.classList.toggle("hidden", !["coins", "average-only"].includes(state.statisticsStep));
   els.statisticsPanel.classList.toggle("is-coin-step", ["coins", "average-only"].includes(state.statisticsStep));
   els.statisticsPanel.classList.toggle("is-average-only-step", state.statisticsStep === "average-only");
+  els.statisticsPanel.classList.toggle("is-average-many", state.statisticsStep === "average-only" && state.smileys.length > 5);
   els.statisticsWeightedTable.classList.add("hidden");
   const statisticsInstruction = document.querySelector("#statisticsInstruction");
   const statisticsRankingDirection = document.querySelector("#statisticsRankingDirection");
@@ -1957,7 +2508,7 @@ function renderStatistics() {
   if (state.statisticsStep === "average-only") {
     setHeader("Average");
     if (statisticsInstruction) {
-      statisticsInstruction.textContent = "Find the average coins.";
+      statisticsInstruction.textContent = "Drag the smileys to sort their coin groups, then find the average.";
     }
     renderStatisticsAverageOnlyStage();
     renderStatisticsAverageOnlyQuestion();
@@ -2086,9 +2637,15 @@ function renderStatisticsBeardIconAnswerChoices(choices, correctAnswer) {
 
 function renderStatisticsCoinStage() {
   els.statisticsCoinBank.replaceChildren();
+  const bankVisual = document.createElement("div");
+  bankVisual.className = "coin-bank-visual";
+  const bankLabel = document.createElement("strong");
+  bankLabel.className = "coin-bank-label";
+  bankLabel.textContent = "Coin tray";
+  bankVisual.append(createCoinTrayIcon(), bankLabel);
   const bankCoins = document.createElement("div");
   bankCoins.className = "coin-bank-dots";
-  els.statisticsCoinBank.append(createCoinTrayIcon(), bankCoins);
+  els.statisticsCoinBank.append(bankVisual, bankCoins);
   els.statisticsCoinShares.replaceChildren();
 }
 
@@ -2112,13 +2669,19 @@ function renderAverageOnlySmileyCoins() {
   const rowItems = [];
   state.smileys
     .filter(smiley => smiley.zone === "tray")
-    .sort((first, second) => first.originalOrder - second.originalOrder)
+    .sort((first, second) => first.placementOrder - second.placementOrder)
     .forEach(smiley => {
       const node = nodesById.get(smiley.id);
       if (!node) return;
       node.querySelector(".smiley-coin-dots")?.remove();
       const pair = document.createElement("div");
       pair.className = "average-pair";
+      pair.dataset.smileyId = smiley.id;
+      const initialCount = document.createElement("span");
+      initialCount.className = "average-initial-count";
+      initialCount.textContent = `Start: ${smiley.coins}`;
+      initialCount.setAttribute("aria-label", `Started with ${smiley.coins} coins`);
+      node.append(initialCount);
       pair.append(node, createAverageCoinPile(smiley));
       rowItems.push(pair);
     });
@@ -2145,6 +2708,13 @@ function renderAverageOnlyResetButton() {
   button.setAttribute("aria-label", "Reset coins");
   button.title = "Reset coins";
   button.textContent = "↺";
+  const icon = document.createElement("span");
+  icon.className = "average-reset-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "↺";
+  const label = document.createElement("span");
+  label.textContent = "Reset coins";
+  button.replaceChildren(icon, label);
   button.addEventListener("click", () => {
     initializeAverageOnlyCoins();
     renderStatisticsCoinStage();
@@ -2181,6 +2751,26 @@ function createCoinTrayIcon() {
   const icon = document.createElement("div");
   icon.className = "coin-tray-icon";
   icon.setAttribute("aria-hidden", "true");
+  const svgNamespace = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNamespace, "svg");
+  svg.setAttribute("viewBox", "0 0 120 76");
+  svg.setAttribute("focusable", "false");
+  const back = document.createElementNS(svgNamespace, "path");
+  back.setAttribute("d", "M13 25 Q60 9 107 25 L101 54 Q60 71 19 54 Z");
+  back.setAttribute("class", "coin-tray-back");
+  const rim = document.createElementNS(svgNamespace, "path");
+  rim.setAttribute("d", "M13 25 Q60 42 107 25");
+  rim.setAttribute("class", "coin-tray-rim");
+  const coins = [[38, 24], [59, 27], [80, 23]].map(([cx, cy]) => {
+    const coin = document.createElementNS(svgNamespace, "circle");
+    coin.setAttribute("cx", String(cx));
+    coin.setAttribute("cy", String(cy));
+    coin.setAttribute("r", "9");
+    coin.setAttribute("class", "coin-tray-coin");
+    return coin;
+  });
+  svg.append(back, ...coins, rim);
+  icon.append(svg);
   return icon;
 }
 
@@ -2301,6 +2891,32 @@ function getStatisticsCoinDropTarget(x, y) {
   const averagePile = element?.closest?.(".average-coin-pile");
   if (averagePile) {
     return { type: "smiley", id: averagePile.dataset.smileyId, element: averagePile };
+  }
+  const averagePair = element?.closest?.(".average-pair");
+  if (averagePair) {
+    return {
+      type: "smiley",
+      id: averagePair.dataset.smileyId,
+      element: averagePair.querySelector(".average-coin-pile") || averagePair
+    };
+  }
+  if (state.statisticsStep === "average-only" && isPointInsideElement(els.tray, x, y)) {
+    const targetPair = [...els.tray.querySelectorAll(".average-pair")]
+      .map(pair => {
+        const rect = pair.getBoundingClientRect();
+        return {
+          pair,
+          distance: Math.hypot(x - (rect.left + rect.width / 2), y - (rect.top + rect.height / 2))
+        };
+      })
+      .sort((first, second) => first.distance - second.distance)[0]?.pair;
+    if (targetPair) {
+      return {
+        type: "smiley",
+        id: targetPair.dataset.smileyId,
+        element: targetPair.querySelector(".average-coin-pile") || targetPair
+      };
+    }
   }
   const dropArea = element?.closest?.(".smiley-coin-drop-area");
   if (dropArea) {
@@ -2629,6 +3245,7 @@ function startCarrollPhase(previousRects = null) {
   els.creatorPanel.classList.add("hidden");
   els.vennPanel.classList.add("hidden");
   els.implicitPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
   els.trayLabel.textContent = "Smileys";
   renderCarrollAxes();
   setHeader("Two Feature Sort", `${state.setCycle + 1} of ${state.reuseGoal}`);
@@ -2653,6 +3270,7 @@ function startComparePhase() {
   els.creatorPanel.classList.add("hidden");
   els.vennPanel.classList.add("hidden");
   els.implicitPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
   resetCountChallenge();
   els.comparePanel.classList.remove("hidden");
   els.trayLabel.textContent = "";
@@ -2959,6 +3577,7 @@ function startSimpleComparePhase() {
   els.creatorPanel.classList.add("hidden");
   els.vennPanel.classList.add("hidden");
   els.implicitPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
   resetCountChallenge();
   els.simpleComparePanel.classList.remove("hidden");
   els.trayLabel.textContent = "";
@@ -3133,6 +3752,7 @@ function startPermutationPhase() {
   els.creatorPanel.classList.add("hidden");
   els.vennPanel.classList.add("hidden");
   els.implicitPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
   resetCountChallenge();
   els.permutationPanel.classList.remove("hidden");
   els.trayLabel.textContent = "";
@@ -3402,6 +4022,7 @@ function factorial(count) {
 
 function startSelectionPhase(previousRects = null) {
   state.phase = "selection";
+  clearVennLighting(els.vennStage);
   resetMistakeCounter();
   els.sortTable.classList.add("hidden");
   els.orderingPanel.classList.add("hidden");
@@ -3412,6 +4033,7 @@ function startSelectionPhase(previousRects = null) {
   els.permutationPanel.classList.add("hidden");
   els.creatorPanel.classList.add("hidden");
   els.implicitPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
   resetCountChallenge();
   els.vennPanel.classList.remove("hidden");
   els.selectionPanel.classList.remove("hidden");
@@ -3502,6 +4124,7 @@ function startCreatorPhase() {
   els.selectionPanel.classList.add("hidden");
   els.vennPanel.classList.add("hidden");
   els.implicitPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
   resetCountChallenge();
   els.creatorPanel.classList.remove("hidden");
   els.trayLabel.textContent = "Criteria";
@@ -3657,6 +4280,7 @@ function creatorSmileyKey(smiley) {
 
 function startVennPhase(previousRects = null) {
   state.phase = "venn";
+  clearVennLighting(els.vennStage);
   resetMistakeCounter();
   state.nextPlacementOrder = 1;
   resetVennZonesForLayout();
@@ -3676,6 +4300,7 @@ function startVennPhase(previousRects = null) {
   resetCountChallenge();
   els.vennPanel.classList.remove("hidden");
   els.implicitPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
   els.trayLabel.textContent = "Smileys";
   els.vennStage.classList.toggle("two-circle", state.activeVennCriteria.length <= 2);
   renderVennHeadlines();
@@ -3704,8 +4329,132 @@ function resetVennZonesForLayout() {
   });
 }
 
+function startCountingPhase(previousRects = null) {
+  state.phase = "counting";
+  clearVennLighting(els.countingStage);
+  resetMistakeCounter();
+  state.countingAnswer = null;
+  state.nextPlacementOrder = 1;
+  state.smileys.forEach(smiley => {
+    smiley.zone = "tray";
+    smiley.placementOrder = smiley.originalOrder;
+  });
+  els.sortTable.classList.add("hidden");
+  els.orderingPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
+  els.carrollPanel.classList.add("hidden");
+  els.comparePanel.classList.add("hidden");
+  els.simpleComparePanel.classList.add("hidden");
+  els.permutationPanel.classList.add("hidden");
+  els.selectionPanel.classList.add("hidden");
+  els.creatorPanel.classList.add("hidden");
+  els.vennPanel.classList.add("hidden");
+  els.implicitPanel.classList.add("hidden");
+  resetCountChallenge();
+  resetCountingZonesForLayout();
+  els.countingPanel?.classList.remove("hidden");
+  els.trayLabel.textContent = "Smileys";
+  setHeader("Counting", getCountingProgressText());
+  els.submitSortButton.textContent = "OK";
+  unlockSubmitButton();
+  renderCounting();
+  renderSmileys();
+  if (previousRects) {
+    animateSmileysFrom(previousRects);
+  }
+}
+
+function resetCountingZonesForLayout() {
+  [
+    els.countingAClue,
+    els.countingBClue,
+    els.countingABClue
+  ].filter(Boolean).forEach(zone => {
+    zone.replaceChildren();
+    zone.classList.remove("is-over", "shake", "tilt-reject");
+  });
+  els.countingUnionClue?.replaceChildren();
+  els.countingQuestion?.replaceChildren();
+  els.countingAnswers?.replaceChildren();
+  els.countingStage?.classList.remove("has-circle-totals");
+}
+
+function renderCounting() {
+  els.countingAHead.replaceChildren();
+  els.countingBHead.replaceChildren();
+  els.countingAHead.setAttribute("aria-label", "Left circle");
+  els.countingBHead.setAttribute("aria-label", "Right circle");
+
+  const challenge = state.countingChallenge;
+  els.countingStage.classList.toggle("has-circle-totals", challenge.variant === "circle-totals");
+  if (challenge.variant === "circle-totals") {
+    renderCountingCircleTotal(els.countingAHead, challenge.leftTotal, "Left circle");
+    renderCountingCircleTotal(els.countingBHead, challenge.rightTotal, "Right circle");
+  } else {
+    renderCountingBadge(els.countingAClue, challenge.aOnly, "Left only");
+    renderCountingBadge(els.countingBClue, challenge.bOnly, "Right only");
+    renderCountingBadge(els.countingABClue, null, "Both");
+  }
+  els.countingUnionClue?.replaceChildren();
+  renderCountingQuestion();
+}
+
+function renderCountingCircleTotal(head, value, label) {
+  const badge = document.createElement("strong");
+  badge.className = "counting-circle-total";
+  badge.textContent = String(value);
+  badge.setAttribute("aria-label", `${label}: ${value}`);
+  head.replaceChildren(badge);
+}
+
+function renderCountingBadge(zone, value, label) {
+  const badge = document.createElement("div");
+  badge.className = "counting-number-badge";
+  badge.textContent = value === null ? "?" : String(value);
+  badge.setAttribute("aria-label", `${label}: ${value === null ? "unknown" : value}`);
+  zone.append(badge);
+}
+
+function renderCountingQuestion() {
+  const challenge = state.countingChallenge;
+  els.countingAnswers.replaceChildren();
+  if (challenge.variant === "circle-totals") {
+    els.countingQuestion.textContent = "Put the smileys so each circle has its number.";
+    return;
+  }
+  const expected = challenge.intersection;
+  els.countingQuestion.textContent = "How many smileys go in both?";
+  (challenge.answerChoices || getCountingAnswerChoices(expected)).forEach(value => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "counting-answer-button";
+    button.classList.toggle("is-selected", state.countingAnswer === value);
+    button.textContent = String(value);
+    button.setAttribute("aria-pressed", String(state.countingAnswer === value));
+    button.addEventListener("click", () => {
+      state.countingAnswer = value;
+      renderCountingQuestion();
+    });
+    els.countingAnswers.append(button);
+  });
+}
+
+function getCountingAnswerChoices(expected) {
+  const choices = new Set([expected]);
+  for (let candidate = 1; choices.size < 4; candidate += 1) {
+    choices.add(candidate);
+  }
+  return shuffle([...choices]).sort((first, second) => first - second);
+}
+
+function getCountingProgressText() {
+  if (state.countingChallenge?.variant === "circle-totals") return "Put the smileys";
+  return state.countingChallenge?.mode === "find-union" ? "Find union" : "Find both";
+}
+
 function startImplicitPhase(previousRects = null) {
   state.phase = "implicit";
+  clearVennLighting(els.implicitStage);
   resetMistakeCounter();
   state.nextPlacementOrder = 1;
   resetImplicitGuessState();
@@ -3718,6 +4467,7 @@ function startImplicitPhase(previousRects = null) {
   els.statisticsPanel.classList.add("hidden");
   els.carrollPanel.classList.add("hidden");
   els.vennPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
   resetCountChallenge();
   els.comparePanel.classList.add("hidden");
   els.simpleComparePanel.classList.add("hidden");
@@ -3900,7 +4650,7 @@ function createOrderingCriteriaChain(criteria) {
   criteria.forEach((criterion, index) => {
     const feature = features.find(item => item.key === criterion.key);
     const item = document.createElement("span");
-    item.className = "criterion-icon";
+    item.className = "criterion-icon is-initial-bouncing";
     item.setAttribute("aria-hidden", "true");
     if (feature) {
       item.append(createFeatureIcon(feature));
@@ -3912,6 +4662,22 @@ function createOrderingCriteriaChain(criteria) {
       arrow.className = "criteria-arrow";
       arrow.setAttribute("aria-hidden", "true");
       chain.append(arrow);
+    }
+  });
+
+  const criterionIcons = [...chain.querySelectorAll(".criterion-icon")];
+  const stopBouncing = () => {
+    criterionIcons.forEach(icon => icon.classList.remove("is-initial-bouncing", "is-rebouncing"));
+  };
+  chain.addEventListener("click", event => {
+    if (!event.target.closest(".criterion-icon")) return;
+    stopBouncing();
+    chain.getBoundingClientRect();
+    criterionIcons.forEach(icon => icon.classList.add("is-rebouncing"));
+  });
+  chain.addEventListener("animationend", event => {
+    if (event.animationName === "criterion-bounce" && event.target === criterionIcons[0]) {
+      stopBouncing();
     }
   });
 
@@ -4011,6 +4777,49 @@ function validateVenn() {
   registerMistake({ returnSmileys: true });
 }
 
+function validateCounting() {
+  const allPlaced = state.smileys.every(smiley => smiley.zone !== "tray");
+  if (state.countingChallenge?.variant === "parts" &&
+    state.smileys.every(smiley => smiley.zone === "tray") &&
+    isCountingAnswerCorrect() &&
+    !state.countingHadMistake) {
+    resetMistakeCounter();
+    finishSet(collectSmileyRects());
+    return;
+  }
+  const placementsCorrect = allPlaced && areCountingGroupsCorrect();
+  const answerCorrect = isCountingAnswerCorrect();
+
+  if (placementsCorrect && answerCorrect) {
+    recordCleanProgress(!state.countingHadMistake, "countingCleanWins", "countingLevel");
+    resetMistakeCounter();
+    finishSet(collectSmileyRects());
+    return;
+  }
+
+  state.countingHadMistake = true;
+  state.countingCleanWins = 0;
+  registerMistake({ returnSmileys: !allPlaced || !placementsCorrect });
+}
+
+function areCountingGroupsCorrect() {
+  const challenge = state.countingChallenge;
+  if (challenge.variant === "circle-totals") {
+    const leftCount = countSmileysInZone("counting-a") + countSmileysInZone("counting-ab");
+    const rightCount = countSmileysInZone("counting-b") + countSmileysInZone("counting-ab");
+    return leftCount === challenge.leftTotal && rightCount === challenge.rightTotal;
+  }
+  return countSmileysInZone("counting-a") === challenge.aOnly &&
+    countSmileysInZone("counting-b") === challenge.bOnly &&
+    countSmileysInZone("counting-ab") === challenge.intersection;
+}
+
+function isCountingAnswerCorrect() {
+  const challenge = state.countingChallenge;
+  if (!challenge || challenge.variant === "circle-totals") return true;
+  return state.countingAnswer === challenge.intersection;
+}
+
 function validateImplicit() {
   const allSorted = state.smileys.every(smiley => smiley.zone !== "tray");
   if (!allSorted) {
@@ -4066,6 +4875,20 @@ function getCarrollZoneForSmiley(smiley, criteria) {
 function getVennZoneForSmiley(smiley, criteria) {
   const key = criteria.map((criterion, index) => criterion.get(smiley) ? String.fromCharCode(97 + index) : "").join("");
   return key ? `venn-${key}` : "venn-outside";
+}
+
+function getCountingZoneForSmiley(smiley) {
+  return getCountingZoneForRawSmiley(smiley, state.activeVennCriteria);
+}
+
+function getCountingZoneForRawSmiley(smiley, criteria) {
+  const [firstFeature, secondFeature] = criteria;
+  const inFirst = firstFeature.get(smiley);
+  const inSecond = secondFeature.get(smiley);
+  if (inFirst && inSecond) return "counting-ab";
+  if (inFirst) return "counting-a";
+  if (inSecond) return "counting-b";
+  return "counting-outside";
 }
 
 function getImplicitZoneForSmiley(smiley, criteria) {
@@ -4154,7 +4977,7 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
 }
 
 function shouldReuseSmileysForNextCycle(mission) {
-  if (mission === "compare" || mission === "simple-compare" || mission === "creator" || mission === "permutation" || mission === "statistics" || mission === "average") return false;
+  if (mission === "compare" || mission === "simple-compare" || mission === "creator" || mission === "permutation" || mission === "statistics" || mission === "average" || mission === "counting") return false;
   return state.setCycle + 1 < state.reuseGoal;
 }
 
@@ -4197,6 +5020,8 @@ function startNextMissionRound(completedMission) {
     startCreatorMission(false);
   } else if (completedMission === "venn") {
     startVennMission(false, nextCount);
+  } else if (completedMission === "counting") {
+    startCountingMission(false);
   } else if (completedMission === "implicit") {
     startImplicitMission(false, nextCount);
   } else if (completedMission === "statistics") {
