@@ -3,8 +3,7 @@ import {
   CYCLE_ENTER_MS,
   CYCLE_EXIT_MS,
   GAME_TITLE,
-  SELECTION_RULE_PROGRESSION,
-  SHOW_NUMBER_TOGGLE
+  SELECTION_RULE_PROGRESSION
 } from "./src/core/constants.js";
 import { features, orderingCriteria } from "./src/core/features.js";
 import {
@@ -22,12 +21,20 @@ import {
   makeStatisticsCoinSmileys,
 } from "./src/core/statistics.js";
 import { shuffle, triadKey } from "./src/core/utils.js";
-import { els, getAllDropContainers, getZoneElement } from "./src/app/elements.js";
+import { els, getAllDropContainers, getZoneElement } from "./src/app/elements.js?v=similarity-stage-v50-20260723";
 import { setHeader, setProgress } from "./src/app/header.js";
-import { state } from "./src/app/state.js";
+import { state } from "./src/app/state.js?v=similarity-stage-v50-20260723";
 
 const vennLightingStates = new WeakMap();
+// "all" lights every region inside the hovered circle.
+// Change to "separate" to light only A & ~B (or B & ~A).
+const VENN_CIRCLE_BOX_LIGHT_MODE = "all";
+const MUSIC_NOTES = [261.63, 329.63, 392, 329.63, 293.66, 349.23, 440, 349.23];
+let audioContext = null;
+let musicTimer = null;
+let musicStep = 0;
 let vennLightingSequence = 0;
+let carrollHighlightSequence = 0;
 
 function init() {
   for (let count = 2; count <= 10; count += 1) {
@@ -40,6 +47,7 @@ function init() {
 
   els.backButton.addEventListener("click", () => showSetup());
   els.featureMissionButton.addEventListener("click", () => chooseFeatureMission());
+  els.similarityMissionButton.addEventListener("click", () => startSimilarityMission());
   els.orderingMissionButton.addEventListener("click", () => startOrderingMission(true));
   els.carrollMissionButton.addEventListener("click", () => startCarrollMission());
   els.compareMissionButton.addEventListener("click", () => startCompareMission());
@@ -48,6 +56,7 @@ function init() {
   els.selectionMissionButton.addEventListener("click", () => startSelectionMission());
   els.creatorMissionButton.addEventListener("click", () => startCreatorMission());
   els.vennMissionButton.addEventListener("click", () => startVennMission());
+  els.nestedMissionButton?.addEventListener("click", () => startNestedMission());
   els.countingMissionButton?.addEventListener("click", () => startCountingMission());
   els.implicitMissionButton.addEventListener("click", () => startImplicitMission());
   els.statisticsMissionButton.addEventListener("click", () => startStatisticsMission());
@@ -58,10 +67,7 @@ function init() {
   els.implicitAHead.addEventListener("click", () => openImplicitChoiceList(0));
   els.implicitBHead.addEventListener("click", () => openImplicitChoiceList(1));
   setupVennLighting();
-  els.modePanel.classList.toggle("hidden", !SHOW_NUMBER_TOGGLE);
-  els.withNumbersButton.addEventListener("click", () => chooseMode(true));
-  els.withoutNumbersButton.addEventListener("click", () => chooseMode(false));
-  chooseMode(state.useNumbers);
+  setupSettingsMenu();
   if (els.newSetButton) {
     els.newSetButton.addEventListener("click", () => showSetup());
   }
@@ -73,6 +79,174 @@ function init() {
     if (isCelebrating()) return;
     event.preventDefault();
     validateCurrentPhase();
+  });
+}
+
+function setupSettingsMenu() {
+  const closeSettings = () => {
+    els.settingsPanel.classList.add("hidden");
+    els.settingsButton.setAttribute("aria-expanded", "false");
+  };
+
+  els.settingsButton.addEventListener("click", event => {
+    event.stopPropagation();
+    const willOpen = els.settingsPanel.classList.contains("hidden");
+    els.settingsPanel.classList.toggle("hidden", !willOpen);
+    els.settingsButton.setAttribute("aria-expanded", String(willOpen));
+  });
+
+  els.settingsPanel.addEventListener("click", event => event.stopPropagation());
+  els.lightingSetting.addEventListener("click", () => {
+    state.lightingEnabled = !state.lightingEnabled;
+    syncSettingsControls();
+    if (!state.lightingEnabled) {
+      clearDropMarks();
+      clearCarrollCrossHighlight();
+    }
+    refreshVennSettings();
+  });
+  els.popupSetting.addEventListener("click", () => {
+    state.intersectionPopupsEnabled = !state.intersectionPopupsEnabled;
+    syncSettingsControls();
+    refreshVennSettings();
+  });
+  els.soundSetting.addEventListener("click", () => {
+    state.soundEnabled = !state.soundEnabled;
+    syncSettingsControls();
+  });
+  els.musicSetting.addEventListener("click", () => {
+    state.musicEnabled = !state.musicEnabled;
+    syncSettingsControls();
+    if (state.musicEnabled) {
+      startBackgroundMusic();
+    } else {
+      stopBackgroundMusic();
+    }
+  });
+  els.numbersSetting.addEventListener("click", () => chooseMode(!state.useNumbers));
+
+  document.addEventListener("click", closeSettings);
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") closeSettings();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopBackgroundMusic();
+    } else if (state.musicEnabled) {
+      startBackgroundMusic();
+    }
+  });
+  syncSettingsControls();
+}
+
+function getAudioContext() {
+  if (audioContext) return audioContext;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return null;
+  audioContext = new AudioContextClass();
+  return audioContext;
+}
+
+function playInteractionSound(type) {
+  if (!state.soundEnabled) return;
+  const context = getAudioContext();
+  if (!context) return;
+
+  const play = () => {
+    if (!state.soundEnabled || context.state !== "running") return;
+    const now = context.currentTime;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const sounds = {
+      pickup: { from: 330, to: 520, duration: 0.11, volume: 0.055, wave: "triangle" },
+      drop: { from: 270, to: 175, duration: 0.16, volume: 0.07, wave: "sine" },
+      remove: { from: 190, to: 330, duration: 0.14, volume: 0.055, wave: "triangle" },
+      mark: { from: 560, to: 430, duration: 0.09, volume: 0.045, wave: "square" },
+      unmark: { from: 420, to: 540, duration: 0.08, volume: 0.038, wave: "triangle" },
+      return: { from: 310, to: 210, duration: 0.13, volume: 0.045, wave: "triangle" }
+    };
+    const sound = sounds[type] || sounds.return;
+
+    oscillator.type = sound.wave;
+    oscillator.frequency.setValueAtTime(sound.from, now);
+    oscillator.frequency.exponentialRampToValueAtTime(sound.to, now + sound.duration);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(sound.volume, now + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + sound.duration);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(now);
+    oscillator.stop(now + sound.duration + 0.02);
+  };
+
+  if (context.state === "suspended") {
+    context.resume().then(play).catch(() => {});
+  } else {
+    play();
+  }
+}
+
+function playBackgroundNote() {
+  if (!state.musicEnabled || !audioContext || audioContext.state !== "running") return;
+
+  const now = audioContext.currentTime;
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(MUSIC_NOTES[musicStep % MUSIC_NOTES.length], now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.026, now + 0.04);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.52);
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start(now);
+  oscillator.stop(now + 0.54);
+  musicStep += 1;
+}
+
+function startBackgroundMusic() {
+  if (!state.musicEnabled || musicTimer !== null) return;
+  const context = getAudioContext();
+  if (!context) return;
+
+  const begin = () => {
+    if (!state.musicEnabled || musicTimer !== null) return;
+    playBackgroundNote();
+    musicTimer = window.setInterval(playBackgroundNote, 620);
+  };
+
+  if (context.state === "suspended") {
+    context.resume().then(begin).catch(() => {});
+  } else {
+    begin();
+  }
+}
+
+function stopBackgroundMusic() {
+  if (musicTimer !== null) {
+    window.clearInterval(musicTimer);
+    musicTimer = null;
+  }
+}
+
+function syncSettingsControls() {
+  [
+    [els.lightingSetting, state.lightingEnabled],
+    [els.popupSetting, state.intersectionPopupsEnabled],
+    [els.soundSetting, state.soundEnabled],
+    [els.musicSetting, state.musicEnabled],
+    [els.numbersSetting, state.useNumbers]
+  ].forEach(([button, enabled]) => {
+    button.setAttribute("aria-checked", String(enabled));
+    button.classList.toggle("is-on", enabled);
+  });
+  document.documentElement.classList.toggle("layout-lighting-off", !state.lightingEnabled);
+}
+
+function refreshVennSettings() {
+  [els.vennStage, els.implicitStage, els.countingStage].forEach(stage => {
+    const lighting = vennLightingStates.get(stage);
+    if (lighting) renderVennLighting(lighting);
   });
 }
 
@@ -168,8 +342,11 @@ function setupVennLightingStage({ stage, zoneSelector, zonePrefix }) {
 
   if ("ResizeObserver" in window) {
     lighting.resizeObserver = new ResizeObserver(() => {
-      const active = lighting.hover || lighting.focus || lighting.pinned;
-      renderVennAreaOverlay(lighting, active?.type === "region" ? active.key : null);
+      const preview = lighting.hover || lighting.focus || lighting.pinned;
+      const activeRegion = state.lightingEnabled && preview?.type === "region" ? preview.key : null;
+      const popupRegion = state.intersectionPopupsEnabled && preview?.type === "region" ? preview.key : null;
+      renderVennAreaOverlay(lighting, activeRegion);
+      renderVennIntersectionPopup(lighting, popupRegion);
     });
     lighting.resizeObserver.observe(stage);
   }
@@ -268,9 +445,13 @@ function matchesVennLighting(first, second) {
 }
 
 function renderVennLighting(lighting) {
-  const active = lighting.hover || lighting.focus || lighting.pinned;
+  const preview = lighting.hover || lighting.focus || lighting.pinned;
+  const active = state.lightingEnabled ? preview : null;
   const activeCircle = active?.type === "circle" ? active.key : null;
   const activeRegion = active?.type === "region" ? active.key : null;
+  const popupRegion = state.intersectionPopupsEnabled && preview?.type === "region"
+    ? preview.key
+    : null;
 
   lighting.stage.classList.toggle("has-venn-light", Boolean(active));
   lighting.stage.classList.toggle("has-venn-circle-light", Boolean(activeCircle));
@@ -293,11 +474,51 @@ function renderVennLighting(lighting) {
       type: "region",
       key: zone.dataset.zone?.replace(lighting.zonePrefix, "") || "outside"
     };
+    const belongsToActiveCircle = shouldLightVennZoneForCircle(descriptor.key, activeCircle);
+    zone.classList.toggle("is-venn-circle-zone-lit", belongsToActiveCircle);
     zone.classList.toggle("is-venn-region-lit", matchesVennLighting(active, descriptor));
     zone.classList.toggle("is-venn-pinned", matchesVennLighting(lighting.pinned, descriptor));
   });
 
   renderVennAreaOverlay(lighting, activeRegion);
+  renderVennIntersectionPopup(lighting, popupRegion);
+}
+
+function shouldLightVennZoneForCircle(zoneKey, circleKey) {
+  if (!circleKey || zoneKey === "outside") return false;
+  return VENN_CIRCLE_BOX_LIGHT_MODE === "all"
+    ? zoneKey.includes(circleKey)
+    : zoneKey === circleKey;
+}
+
+function renderVennIntersectionPopup(lighting, activeRegion) {
+  const popup = els.vennIntersectionPopup;
+  if (!popup || lighting.stage !== els.vennStage) return;
+
+  const criteria = activeRegion && activeRegion !== "outside"
+    ? [...activeRegion]
+      .map(letter => state.activeVennCriteria[letter.charCodeAt(0) - 97])
+      .filter(Boolean)
+    : [];
+  const zone = lighting.zones.find(item =>
+    item.dataset.zone === `${lighting.zonePrefix}${activeRegion}`
+  );
+
+  if (criteria.length < 2 || !zone || getComputedStyle(zone).display === "none") {
+    popup.classList.add("hidden");
+    popup.replaceChildren();
+    popup.removeAttribute("aria-label");
+    return;
+  }
+
+  popup.replaceChildren(createCombinedCategoryIcon(criteria));
+  popup.setAttribute("aria-label", criteria.map(feature => feature.label).join(" and "));
+  popup.classList.remove("hidden");
+
+  const stageRect = lighting.stage.getBoundingClientRect();
+  const zoneRect = zone.getBoundingClientRect();
+  popup.style.left = `${zoneRect.left - stageRect.left + (zoneRect.width / 2)}px`;
+  popup.style.top = `${Math.max(12, zoneRect.top - stageRect.top - 86)}px`;
 }
 
 function renderVennAreaOverlay(lighting, activeRegion) {
@@ -398,10 +619,7 @@ function chooseFeatureMission() {
 
 function chooseMode(useNumbers) {
   state.useNumbers = useNumbers;
-  els.withNumbersButton.classList.toggle("is-selected", useNumbers);
-  els.withoutNumbersButton.classList.toggle("is-selected", !useNumbers);
-  els.withNumbersButton.setAttribute("aria-pressed", String(useNumbers));
-  els.withoutNumbersButton.setAttribute("aria-pressed", String(!useNumbers));
+  syncSettingsControls();
 }
 
 function startSet(count, clearPendingTimers = true) {
@@ -466,6 +684,31 @@ function startOrderingMission(resetProgress = false, clearPendingTimers = true) 
   els.workPanel.classList.remove("hidden");
   els.backButton.classList.remove("hidden");
   startOrderingPhase();
+}
+
+function startSimilarityMission(clearPendingTimers = true) {
+  if (clearPendingTimers) {
+    clearCycleTimers();
+  }
+  els.workPanel.classList.remove("cycle-fading-out");
+  state.mission = "similarity";
+  state.requestedCount = 3;
+  state.phase = "similarity";
+  state.smileys = [];
+  state.similarityChallenge = makeSimilarityChallenge();
+  state.similaritySelectedIndex = null;
+  state.activeFeatures = [];
+  state.activeOrderingCriteria = [];
+  state.activeCarrollCriteria = [];
+  state.activeVennCriteria = [];
+  state.activeImplicitCriteria = [];
+  resetCompareState();
+  state.countChallenge = null;
+  resetMistakeCounter();
+  els.setupPanel.classList.add("hidden");
+  els.workPanel.classList.remove("hidden");
+  els.backButton.classList.remove("hidden");
+  startSimilarityPhase();
 }
 
 function startStatisticsMission(clearPendingTimers = true) {
@@ -750,6 +993,35 @@ function startVennMission(clearPendingTimers = true, count = getDefaultSmileyCou
   startVennPhase();
 }
 
+function startNestedMission(clearPendingTimers = true, count = getDefaultSmileyCount()) {
+  if (clearPendingTimers) {
+    clearCycleTimers();
+  }
+  els.workPanel.classList.remove("cycle-fading-out");
+  state.mission = "nested";
+  state.requestedCount = Math.max(5, count);
+  state.phase = "nested";
+  state.featureIndex = 0;
+  state.nextPlacementOrder = 1;
+  const setup = makeNestedSet(state.requestedCount);
+  state.smileys = setup.smileys;
+  state.setCycle = 0;
+  state.reuseGoal = getReuseGoal("nested");
+  state.activeFeatures = [];
+  state.activeOrderingCriteria = [];
+  state.activeCarrollCriteria = [];
+  state.activeVennCriteria = [];
+  state.activeNestedCriteria = setup.criteria;
+  state.activeImplicitCriteria = [];
+  resetCompareState();
+  state.countChallenge = null;
+  resetMistakeCounter();
+  els.setupPanel.classList.add("hidden");
+  els.workPanel.classList.remove("hidden");
+  els.backButton.classList.remove("hidden");
+  startNestedPhase();
+}
+
 function startCountingMission(clearPendingTimers = true) {
   if (clearPendingTimers) {
     clearCycleTimers();
@@ -818,15 +1090,20 @@ function startImplicitMission(clearPendingTimers = true, count = getDefaultSmile
 
 function showSetup() {
   clearCycleTimers();
+  els.similarityPanel.classList.add("hidden");
+  els.nestedPanel.classList.add("hidden");
   state.smileys = [];
   state.activeFeatures = [];
   state.activeOrderingCriteria = [];
   state.activeCarrollCriteria = [];
   state.activeVennCriteria = [];
+  state.activeNestedCriteria = [];
   state.activeImplicitCriteria = [];
   resetImplicitGuessState();
   resetCompareState();
   resetSimpleCompareState();
+  state.similarityChallenge = null;
+  state.similaritySelectedIndex = null;
   resetSelectionState();
   resetCreatorState();
   resetPermutationState();
@@ -934,6 +1211,21 @@ function createFeatureIcon(feature, withX = false) {
   return wrapper;
 }
 
+function createCombinedCategoryIcon(criteria) {
+  const combinedIcon = document.createElement("span");
+  combinedIcon.className = `combined-category-icon combined-category-${criteria.length}`;
+  combinedIcon.setAttribute("aria-hidden", "true");
+
+  criteria.forEach(feature => {
+    const part = createFeatureIcon(feature);
+    part.classList.add("combined-category-part", `combined-category-part-${feature.icon}`);
+    combinedIcon.classList.add(`has-${feature.icon}`);
+    combinedIcon.append(part);
+  });
+
+  return combinedIcon;
+}
+
 function getDefaultSmileyCount() {
   if (state.useNumbers) return 10;
   return 5 + Math.floor(Math.random() * 3);
@@ -965,6 +1257,25 @@ function hasAllCarrollQuadrants(smileys, criteria) {
 
 function makeVennSet(count = getDefaultSmileyCount()) {
   return makeVennSetForCount(getVennCriterionCount(), count);
+}
+
+function makeNestedSet(count = getDefaultSmileyCount()) {
+  const criteria = shuffle(getFeaturePairs())[0];
+  const allSmileys = shuffle(makeAllSmileyCombinations());
+  const zoneOrder = ["nested-inner", "nested-outer", "nested-outside"];
+  const selected = zoneOrder.map(zone =>
+    allSmileys.find(smiley => getNestedZoneForSmiley(smiley, criteria) === zone)
+  ).filter(Boolean);
+
+  shuffle(allSmileys).forEach(smiley => {
+    if (selected.length >= count) return;
+    if (!selected.includes(smiley)) selected.push(smiley);
+  });
+
+  return {
+    smileys: makePlayableSmileys(shuffle(selected.slice(0, count))),
+    criteria
+  };
 }
 
 function makeVennSetForCount(criterionCount, count = getDefaultSmileyCount()) {
@@ -1129,6 +1440,40 @@ function makeCompareSet() {
   return { smileys: makePlayableSmileys(allSmileys.slice(0, 2)) };
 }
 
+function makeSimilarityChallenge() {
+  const target = shuffle(makeAllSmileyCombinations())[0];
+  const featureKeys = shuffle(["shape", "color", "expression", "hat", "ears"]);
+  const closeCandidate = featureKeys
+    .slice(0, 1)
+    .reduce((smiley, featureKey) => toggleSimilarityFeature(smiley, featureKey), { ...target });
+  const farCandidate = featureKeys
+    .slice(0, 3)
+    .reduce((smiley, featureKey) => toggleSimilarityFeature(smiley, featureKey), { ...target });
+  const choices = shuffle([
+    { smiley: closeCandidate, distance: 1 },
+    { smiley: farCandidate, distance: 3 }
+  ]);
+  const playable = makePlayableSmileys([target, ...choices.map(choice => choice.smiley)]);
+  return {
+    target: playable[0],
+    candidates: playable.slice(1),
+    correctIndex: choices.findIndex(choice => choice.distance === 1)
+  };
+}
+
+function toggleSimilarityFeature(smiley, featureKey) {
+  if (featureKey === "shape") {
+    return { ...smiley, shape: smiley.shape === "round" ? "square" : "round" };
+  }
+  if (featureKey === "color") {
+    return { ...smiley, color: smiley.color === "yellow" ? "red" : "yellow" };
+  }
+  if (featureKey === "expression") {
+    return { ...smiley, expression: smiley.expression === "smile" ? "neutral" : "smile" };
+  }
+  return { ...smiley, [featureKey]: !smiley[featureKey] };
+}
+
 function chooseCreatorCriteria() {
   return shuffle([...features]).slice(0, state.creatorLevel >= 2 ? 3 : 2);
 }
@@ -1270,6 +1615,7 @@ function zoneRank(zone) {
   if (zone === "without") return 2;
   if (zone.startsWith("carroll")) return 3;
   if (zone.startsWith("venn")) return 4;
+  if (zone.startsWith("nested")) return 4;
   if (zone.startsWith("counting")) return 5;
   if (zone.startsWith("implicit")) return 6;
   if (zone === "selection-target") return 6;
@@ -1297,6 +1643,15 @@ function createSmileyNode(smiley) {
   return node;
 }
 
+function createStaticSmileyNode(smiley) {
+  const source = createSmileyNode(smiley);
+  const visual = document.createElement("span");
+  visual.className = `${source.className} similarity-smiley`;
+  visual.setAttribute("aria-hidden", "true");
+  visual.append(...[...source.children].map(child => child.cloneNode(true)));
+  return visual;
+}
+
 function describeSmiley(smiley) {
   const shape = smiley.shape === "round" ? "round" : "square";
   const color = smiley.color;
@@ -1320,6 +1675,7 @@ function beginDrag(event, node) {
     cancelActiveDrag();
   }
   cleanupStrandedDragNodes();
+  playInteractionSound("pickup");
   const previousRects = collectSmileyRects();
   const rect = node.getBoundingClientRect();
   node.setPointerCapture(event.pointerId);
@@ -1374,6 +1730,7 @@ function beginAverageSmileyDrag(event, smileyNode) {
   const smiley = state.smileys.find(item => item.id === smileyNode.dataset.id);
   if (!pair || !smiley) return;
 
+  playInteractionSound("pickup");
   const rect = pair.getBoundingClientRect();
   const placeholder = document.createElement("div");
   placeholder.className = "average-drop-placeholder";
@@ -1441,7 +1798,8 @@ function endAverageSmileyDrag(event) {
   if (!state.dragging || state.dragging.type !== "average-smiley") return;
   event.preventDefault();
   const smiley = state.smileys.find(item => item.id === state.dragging.id);
-  if (smiley && isPointInsideElement(els.tray, event.clientX, event.clientY)) {
+  const placed = Boolean(smiley && isPointInsideElement(els.tray, event.clientX, event.clientY));
+  if (placed) {
     const insertIndex = [...els.tray.children].indexOf(state.dragging.placeholder);
     const ordered = state.smileys
       .filter(item => item.id !== smiley.id)
@@ -1451,6 +1809,7 @@ function endAverageSmileyDrag(event) {
       item.placementOrder = index;
     });
   }
+  playInteractionSound(placed ? "drop" : "return");
   cleanupAverageSmileyDrag();
   renderSmileys();
 }
@@ -1491,6 +1850,9 @@ function endDrag(event) {
   event.preventDefault();
   const previousRects = collectSmileyRects();
   const dropZone = getDropTarget(event.clientX, event.clientY);
+  const carrollDropZone = state.phase === "carroll" && dropZone?.classList.contains("carroll-zone")
+    ? dropZone.dataset.zone
+    : null;
   const smiley = state.smileys.find(item => item.id === state.dragging.id);
   if (dropZone && smiley && shouldRejectImplicitDrop(smiley, dropZone.dataset.zone)) {
     const returnRects = new Map([[smiley.id, state.dragging.node.getBoundingClientRect()]]);
@@ -1499,6 +1861,7 @@ function endDrag(event) {
     renderSmileys();
     animateSmileysFrom(returnRects, null, "fast");
     markRejectedSmiley(smiley.id);
+    playInteractionSound("return");
     return;
   }
   if (dropZone && smiley) {
@@ -1506,9 +1869,13 @@ function endDrag(event) {
   } else if (smiley) {
     restoreDraggedSmiley(smiley);
   }
+  playInteractionSound(dropZone && smiley ? "drop" : "return");
   cleanupDrag();
   renderSmileys();
   animateSmileysFrom(previousRects, null, "fast");
+  if (carrollDropZone) {
+    pulseCarrollCrossHighlight(carrollDropZone);
+  }
 }
 
 function shouldRejectImplicitDrop(smiley, zone) {
@@ -1750,11 +2117,60 @@ function markDropTarget(x, y) {
   const target = getDropTarget(x, y);
   if (target) {
     target.classList.add("is-over");
+    if (state.phase === "carroll" && target.classList.contains("carroll-zone")) {
+      applyCarrollCrossHighlight(target.dataset.zone);
+    }
   }
 }
 
 function clearDropMarks() {
   getAllDropContainers().forEach(zone => zone.classList.remove("is-over"));
+  clearCarrollCrossHighlight();
+}
+
+function getCarrollCoordinates(zone) {
+  const match = /^carroll-(with|without)-(with|without)$/.exec(zone || "");
+  return match ? { column: match[1], row: match[2] } : null;
+}
+
+function applyCarrollCrossHighlight(zone) {
+  if (!state.lightingEnabled) {
+    clearCarrollCrossHighlight();
+    return;
+  }
+  const coordinates = getCarrollCoordinates(zone);
+  if (!coordinates) return;
+
+  els.carrollTable.querySelectorAll(".carroll-zone").forEach(cell => {
+    const cellCoordinates = getCarrollCoordinates(cell.dataset.zone);
+    cell.classList.toggle("is-carroll-column-guide", cellCoordinates?.column === coordinates.column);
+    cell.classList.toggle("is-carroll-row-guide", cellCoordinates?.row === coordinates.row);
+  });
+
+  els.carrollTopWith.classList.toggle("is-carroll-column-guide", coordinates.column === "with");
+  els.carrollTopWithout.classList.toggle("is-carroll-column-guide", coordinates.column === "without");
+  els.carrollSideWith.classList.toggle("is-carroll-row-guide", coordinates.row === "with");
+  els.carrollSideWithout.classList.toggle("is-carroll-row-guide", coordinates.row === "without");
+}
+
+function clearCarrollCrossHighlight() {
+  carrollHighlightSequence += 1;
+  els.carrollTable?.classList.remove("is-carroll-drop-pulse");
+  els.carrollTable?.querySelectorAll(".is-carroll-column-guide, .is-carroll-row-guide").forEach(node => {
+    node.classList.remove("is-carroll-column-guide", "is-carroll-row-guide");
+  });
+}
+
+function pulseCarrollCrossHighlight(zone) {
+  if (!state.lightingEnabled) return;
+  clearCarrollCrossHighlight();
+  const sequence = carrollHighlightSequence;
+  applyCarrollCrossHighlight(zone);
+  els.carrollTable.classList.add("is-carroll-drop-pulse");
+  window.setTimeout(() => {
+    if (sequence !== carrollHighlightSequence) return;
+    clearCarrollCrossHighlight();
+  }, 720);
 }
 
 function getDropTarget(x, y) {
@@ -1774,6 +2190,12 @@ function getDropTarget(x, y) {
       .filter(zone => zone.classList.contains("venn-zone") || zone.classList.contains("smiley-tray"))
       .find(zone => isPointInsideElement(zone, x, y));
     if (vennTarget) return vennTarget;
+  }
+  if (state.phase === "nested") {
+    const nestedTarget = getAllDropContainers()
+      .filter(zone => zone.classList.contains("nested-zone") || zone.classList.contains("smiley-tray"))
+      .find(zone => isPointInsideElement(zone, x, y));
+    if (nestedTarget) return nestedTarget;
   }
   if (state.phase === "implicit") {
     const implicitTarget = getAllDropContainers()
@@ -1807,6 +2229,9 @@ function getDropTarget(x, y) {
   if (state.phase === "venn") {
     return element.closest(".venn-zone, .smiley-tray");
   }
+  if (state.phase === "nested") {
+    return element.closest(".nested-zone, .smiley-tray");
+  }
   if (state.phase === "implicit") {
     return element.closest(".implicit-zone, .smiley-tray");
   }
@@ -1827,6 +2252,10 @@ function validateCurrentPhase() {
   if (isCelebrating()) return;
   if (state.countChallenge) {
     checkCounts();
+    return;
+  }
+  if (state.phase === "similarity") {
+    validateSimilarity();
     return;
   }
   if (state.phase === "ordering") {
@@ -1859,6 +2288,10 @@ function validateCurrentPhase() {
   }
   if (state.phase === "venn") {
     validateVenn();
+    return;
+  }
+  if (state.phase === "nested") {
+    validateNested();
     return;
   }
   if (state.phase === "counting") {
@@ -1946,6 +2379,8 @@ function signalIncorrect() {
   }
   const target = state.phase === "ordering"
     ? els.orderingPanel
+    : state.phase === "similarity"
+      ? els.similarityPanel
     : state.phase === "carroll"
       ? els.carrollPanel
       : state.phase === "compare"
@@ -1960,6 +2395,8 @@ function signalIncorrect() {
         ? els.creatorPanel
       : state.phase === "venn"
         ? els.vennPanel
+      : state.phase === "nested"
+        ? els.nestedPanel
       : state.phase === "counting"
         ? els.countingPanel
       : state.phase === "implicit"
@@ -2239,6 +2676,15 @@ function buildMissionCountItems() {
       }))
     ];
   }
+  if (state.mission === "nested") {
+    const [outerFeature, innerFeature] = state.activeNestedCriteria;
+    return [
+      { label: "Whole", expected: state.smileys.length, whole: true, target: "tray-label", showLabel: false },
+      { label: createCountIconGroup([createFeatureIcon(outerFeature), createFeatureIcon(innerFeature)]), expected: countSmileysInZone("nested-inner"), zone: "nested-inner", showLabel: false },
+      { label: createFeatureIcon(outerFeature), expected: countSmileysInZone("nested-outer"), zone: "nested-outer", showLabel: false },
+      { label: createFeatureIcon(outerFeature, true), expected: countSmileysInZone("nested-outside"), zone: "nested-outside", showLabel: false }
+    ];
+  }
   if (state.mission === "implicit") {
     return [
       { label: "Whole", expected: state.smileys.length, whole: true, target: "tray-label", showLabel: false },
@@ -2351,6 +2797,87 @@ function transitionToNextFeatureQuestion() {
   scheduleCycleTimer(() => {
     els.workPanel.classList.remove("criteria-fading-in");
   }, 1520);
+}
+
+function startSimilarityPhase() {
+  state.phase = "similarity";
+  state.similaritySelectedIndex = null;
+  resetMistakeCounter();
+  resetCountChallenge();
+  els.sortTable.classList.add("hidden");
+  els.similarityPanel.classList.remove("hidden");
+  els.orderingPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
+  els.carrollPanel.classList.add("hidden");
+  els.comparePanel.classList.add("hidden");
+  els.simpleComparePanel.classList.add("hidden");
+  els.permutationPanel.classList.add("hidden");
+  els.selectionPanel.classList.add("hidden");
+  els.creatorPanel.classList.add("hidden");
+  els.vennPanel.classList.add("hidden");
+  els.nestedPanel.classList.add("hidden");
+  els.implicitPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
+  els.tray.replaceChildren();
+  els.trayLabel.textContent = "";
+  setHeader("Who is more similar?");
+  els.submitSortButton.textContent = "OK";
+  lockSubmitButton();
+  renderSimilarityChallenge();
+}
+
+function renderSimilarityChallenge() {
+  const challenge = state.similarityChallenge;
+  if (!challenge) return;
+  els.similarityReference.replaceChildren(createStaticSmileyNode(challenge.target));
+  els.similarityReference.setAttribute("aria-label", `Reference: ${describeSmiley(challenge.target)}`);
+  els.similarityChoices.replaceChildren(...challenge.candidates.map((smiley, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "similarity-choice";
+    button.dataset.similarityIndex = String(index);
+    button.setAttribute("aria-label", `Choice ${index + 1}: ${describeSmiley(smiley)}`);
+    button.setAttribute("aria-pressed", String(state.similaritySelectedIndex === index));
+    button.classList.toggle("is-selected", state.similaritySelectedIndex === index);
+    button.append(createStaticSmileyNode(smiley));
+    button.addEventListener("click", () => selectSimilarityCandidate(index));
+    return button;
+  }));
+}
+
+function selectSimilarityCandidate(index) {
+  if (state.phase !== "similarity") return;
+  state.similaritySelectedIndex = index;
+  playInteractionSound("mark");
+  els.similarityChoices.querySelectorAll(".similarity-choice").forEach((button, buttonIndex) => {
+    const isSelected = buttonIndex === index;
+    button.classList.toggle("is-selected", isSelected);
+    button.setAttribute("aria-pressed", String(isSelected));
+  });
+  unlockSubmitButton();
+}
+
+function validateSimilarity() {
+  const challenge = state.similarityChallenge;
+  const selectedIndex = state.similaritySelectedIndex;
+  if (!challenge || selectedIndex === null) return;
+  const selectedButton = els.similarityChoices.querySelector(`[data-similarity-index="${selectedIndex}"]`);
+  if (selectedIndex === challenge.correctIndex) {
+    selectedButton?.classList.add("is-correct");
+    playInteractionSound("drop");
+    resetMistakeCounter();
+    finishSet(new Map());
+    return;
+  }
+
+  selectedButton?.classList.add("is-wrong");
+  playInteractionSound("return");
+  registerMistake();
+  state.similaritySelectedIndex = null;
+  lockSubmitButton();
+  window.setTimeout(() => {
+    if (state.phase === "similarity") renderSimilarityChallenge();
+  }, 420);
 }
 
 function startOrderingPhase(previousRects = null) {
@@ -2796,6 +3323,7 @@ function beginStatisticsCoinDrag(event, node) {
   }
   const coin = state.statisticsCoins.find(item => item.id === node.dataset.coinId);
   if (!coin) return;
+  playInteractionSound("pickup");
   const rect = node.getBoundingClientRect();
   node.setPointerCapture(event.pointerId);
   state.dragging = {
@@ -2838,6 +3366,7 @@ function endStatisticsCoinDrag(event) {
   } else if (coin) {
     coin.location = state.dragging.originalLocation;
   }
+  playInteractionSound(coin && target ? "drop" : "return");
   cleanupStatisticsCoinDrag();
   renderActiveStatisticsCoins();
 }
@@ -3368,7 +3897,8 @@ function beginCompareCriteriaDrag(event, node) {
     offsetY: event.clientY - rect.top,
     startX: event.clientX,
     startY: event.clientY,
-    moved: false
+    moved: false,
+    soundStarted: false
   };
   dragNode.style.width = `${rect.width}px`;
   dragNode.style.height = `${rect.height}px`;
@@ -3389,6 +3919,10 @@ function moveCompareCriteriaDrag(event) {
   const { node, offsetX, offsetY } = state.dragging;
   const travel = Math.hypot(event.clientX - state.dragging.startX, event.clientY - state.dragging.startY);
   state.dragging.moved = travel > 8;
+  if (state.dragging.moved && !state.dragging.soundStarted) {
+    state.dragging.soundStarted = true;
+    playInteractionSound("pickup");
+  }
   node.style.left = `${event.clientX - offsetX}px`;
   node.style.top = `${event.clientY - offsetY}px`;
   if (state.dragging.moved) {
@@ -3403,7 +3937,9 @@ function endCompareCriteriaDrag(event) {
   const target = getCompareDropTarget(event.clientX, event.clientY);
   const travel = Math.hypot(event.clientX - dragged.startX, event.clientY - dragged.startY);
   if (!dragged.moved && travel <= 8) {
-    setCompareVisualX(dragged.featureKey, !state.compareVisualX[dragged.featureKey]);
+    const willShowX = !state.compareVisualX[dragged.featureKey];
+    setCompareVisualX(dragged.featureKey, willShowX);
+    playInteractionSound(willShowX ? "mark" : "unmark");
     cleanupCompareCriteriaDrag();
     return;
   }
@@ -3417,11 +3953,17 @@ function endCompareCriteriaDrag(event) {
 
   if (target) {
     const zone = target.dataset.compareZone;
+    const previousZone = state.comparePlacements[dragged.featureKey] || "bank";
     if (zone === "bank") {
       delete state.comparePlacements[dragged.featureKey];
     } else {
       state.comparePlacements[dragged.featureKey] = zone;
     }
+    playInteractionSound(zone === "bank"
+      ? (previousZone === "bank" ? "return" : "remove")
+      : "drop");
+  } else {
+    playInteractionSound("return");
   }
   cleanupCompareCriteriaDrag();
   renderCompareDragView();
@@ -3620,6 +4162,7 @@ function renderSimpleCompare() {
       button.classList.toggle("has-simple-x", !value);
       button.setAttribute("aria-label", `${feature.label} ${value ? "marked present" : "marked absent"}`);
       button.addEventListener("click", () => {
+        playInteractionSound(value ? "mark" : "unmark");
         setSimpleFeatureMark(feature.key, smileyIndex, !value);
         renderSimpleCompare();
       });
@@ -3634,6 +4177,7 @@ function renderSimpleCompare() {
     relationButton.textContent = relation === "different" ? "\u2260" : "=";
     relationButton.classList.toggle("is-different", relation === "different");
     relationButton.addEventListener("click", () => {
+      playInteractionSound(relation === "different" ? "unmark" : "mark");
       setSimpleRelationMark(feature.key, relation === "different" ? "equal" : "different");
       renderSimpleCompare();
     });
@@ -3804,6 +4348,7 @@ function beginAlbumPhotoDrag(event, node) {
   if (state.dragging) {
     cancelActiveDrag();
   }
+  playInteractionSound("pickup");
   const rect = node.getBoundingClientRect();
   const dragNode = node.cloneNode(true);
   node.setPointerCapture(event.pointerId);
@@ -3853,6 +4398,7 @@ function endAlbumPhotoDrag(event) {
   if (target && draggedPhoto) {
     moveAlbumPhoto(dragged.sourceIndex, Number(target.dataset.photoIndex));
   }
+  playInteractionSound(target && draggedPhoto ? "drop" : "return");
   cleanupAlbumPhotoDrag();
   renderPermutationAlbum();
   animateAlbumPhotosFrom(previousRects);
@@ -4166,6 +4712,7 @@ function createCreatorCriterionCard(feature) {
 
 function beginCreatorCriterionDrag(event, node) {
   event.preventDefault();
+  playInteractionSound("pickup");
   const rect = node.getBoundingClientRect();
   node.setPointerCapture(event.pointerId);
   state.dragging = {
@@ -4198,9 +4745,11 @@ function moveCreatorCriterionDrag(event) {
 function endCreatorCriterionDrag(event) {
   if (!state.dragging || state.dragging.type !== "creator-criterion") return;
   event.preventDefault();
-  if (isPointInsideElement(els.creatorSmileyTarget, event.clientX, event.clientY)) {
+  const placed = isPointInsideElement(els.creatorSmileyTarget, event.clientX, event.clientY);
+  if (placed) {
     applyCreatorFeature(state.dragging.featureKey);
   }
+  playInteractionSound(placed ? "drop" : "return");
   cleanupCreatorCriterionDrag();
   renderCreator();
 }
@@ -4305,6 +4854,43 @@ function startVennPhase(previousRects = null) {
   els.vennStage.classList.toggle("two-circle", state.activeVennCriteria.length <= 2);
   renderVennHeadlines();
   setHeader("Circle Sort", `${state.setCycle + 1} of ${state.reuseGoal}`);
+  els.submitSortButton.textContent = "OK";
+  unlockSubmitButton();
+  renderSmileys();
+  if (previousRects) {
+    animateSmileysFrom(previousRects);
+  }
+}
+
+function startNestedPhase(previousRects = null) {
+  state.phase = "nested";
+  resetMistakeCounter();
+  state.nextPlacementOrder = 1;
+  state.smileys.forEach(smiley => {
+    smiley.zone = "tray";
+    smiley.placementOrder = smiley.originalOrder;
+  });
+  [els.nestedOuterZone, els.nestedInnerZone, els.nestedOutsideZone].forEach(zone => {
+    zone.replaceChildren();
+    zone.classList.remove("is-over", "shake", "tilt-reject");
+  });
+  els.sortTable.classList.add("hidden");
+  els.orderingPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
+  els.carrollPanel.classList.add("hidden");
+  els.comparePanel.classList.add("hidden");
+  els.simpleComparePanel.classList.add("hidden");
+  els.permutationPanel.classList.add("hidden");
+  els.selectionPanel.classList.add("hidden");
+  els.creatorPanel.classList.add("hidden");
+  els.vennPanel.classList.add("hidden");
+  els.implicitPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
+  resetCountChallenge();
+  els.nestedPanel.classList.remove("hidden");
+  els.trayLabel.textContent = "Smileys";
+  renderNestedHeadlines();
+  setHeader("Nested Sets", `${state.setCycle + 1} of ${state.reuseGoal}`);
   els.submitSortButton.textContent = "OK";
   unlockSubmitButton();
   renderSmileys();
@@ -4511,6 +5097,15 @@ function renderVennHeadlines() {
   });
 }
 
+function renderNestedHeadlines() {
+  const [outerFeature, innerFeature] = state.activeNestedCriteria;
+  els.nestedOuterHead.replaceChildren(createFeatureIcon(outerFeature));
+  els.nestedOuterHead.setAttribute("aria-label", outerFeature.label);
+
+  els.nestedInnerHead.replaceChildren(createCombinedCategoryIcon([outerFeature, innerFeature]));
+  els.nestedInnerHead.setAttribute("aria-label", `${outerFeature.label} and ${innerFeature.label}`);
+}
+
 function renderImplicitHeadlines() {
   [els.implicitAHead, els.implicitBHead].forEach((head, index) => {
     const guessedKey = state.implicitGuesses[index];
@@ -4593,6 +5188,18 @@ function chooseImplicitCriteriaForSmileys(smileys) {
 
 function chooseVennCriteria() {
   return shuffle([...features]).slice(0, getVennCriterionCount());
+}
+
+function chooseNestedCriteriaForSmileys(smileys, previousCriteria = []) {
+  const pairs = shuffle(getFeaturePairs());
+  const previousKey = getCriteriaPairKey(previousCriteria);
+  return pairs.find(pair =>
+    getCriteriaPairKey(pair) !== previousKey && hasAllNestedZones(smileys, pair)
+  ) || pairs.find(pair => hasAllNestedZones(smileys, pair)) || pairs[0];
+}
+
+function hasAllNestedZones(smileys, criteria) {
+  return new Set(smileys.map(smiley => getNestedZoneForSmiley(smiley, criteria))).size === 3;
 }
 
 function chooseSelectionCriteria() {
@@ -4777,6 +5384,26 @@ function validateVenn() {
   registerMistake({ returnSmileys: true });
 }
 
+function validateNested() {
+  const allSorted = state.smileys.every(smiley => smiley.zone !== "tray");
+  if (!allSorted) {
+    registerMistake({ returnSmileys: true });
+    return;
+  }
+
+  const isCorrect = state.smileys.every(smiley =>
+    smiley.zone === getNestedZoneForSmiley(smiley, state.activeNestedCriteria)
+  );
+
+  if (isCorrect) {
+    resetMistakeCounter();
+    completeMissionAfterCorrectSort();
+    return;
+  }
+
+  registerMistake({ returnSmileys: true });
+}
+
 function validateCounting() {
   const allPlaced = state.smileys.every(smiley => smiley.zone !== "tray");
   if (state.countingChallenge?.variant === "parts" &&
@@ -4875,6 +5502,12 @@ function getCarrollZoneForSmiley(smiley, criteria) {
 function getVennZoneForSmiley(smiley, criteria) {
   const key = criteria.map((criterion, index) => criterion.get(smiley) ? String.fromCharCode(97 + index) : "").join("");
   return key ? `venn-${key}` : "venn-outside";
+}
+
+function getNestedZoneForSmiley(smiley, criteria) {
+  const [outerFeature, innerFeature] = criteria;
+  if (!outerFeature.get(smiley)) return "nested-outside";
+  return innerFeature.get(smiley) ? "nested-inner" : "nested-outer";
 }
 
 function getCountingZoneForSmiley(smiley) {
@@ -4977,7 +5610,7 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
 }
 
 function shouldReuseSmileysForNextCycle(mission) {
-  if (mission === "compare" || mission === "simple-compare" || mission === "creator" || mission === "permutation" || mission === "statistics" || mission === "average" || mission === "counting") return false;
+  if (mission === "similarity" || mission === "compare" || mission === "simple-compare" || mission === "creator" || mission === "permutation" || mission === "statistics" || mission === "average" || mission === "counting") return false;
   return state.setCycle + 1 < state.reuseGoal;
 }
 
@@ -5006,6 +5639,8 @@ function startNextMissionRound(completedMission) {
   const nextCount = randomCountDifferentFrom(state.requestedCount);
   if (completedMission === "ordering") {
     startOrderingMission(false, false);
+  } else if (completedMission === "similarity") {
+    startSimilarityMission(false);
   } else if (completedMission === "carroll") {
     startCarrollMission(false, nextCount);
   } else if (completedMission === "compare") {
@@ -5020,6 +5655,8 @@ function startNextMissionRound(completedMission) {
     startCreatorMission(false);
   } else if (completedMission === "venn") {
     startVennMission(false, nextCount);
+  } else if (completedMission === "nested") {
+    startNestedMission(false, nextCount);
   } else if (completedMission === "counting") {
     startCountingMission(false);
   } else if (completedMission === "implicit") {
@@ -5079,6 +5716,12 @@ function startNextCycleWithSameSmileys(mission, previousRects = null) {
   if (mission === "venn") {
     state.activeVennCriteria = chooseVennCriteria();
     startVennPhase(previousRects);
+    return;
+  }
+
+  if (mission === "nested") {
+    state.activeNestedCriteria = chooseNestedCriteriaForSmileys(state.smileys, state.activeNestedCriteria);
+    startNestedPhase(previousRects);
     return;
   }
 

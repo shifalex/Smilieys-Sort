@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=copyright-dedication-v12-20260718">
+    <link rel="stylesheet" href="styles.css?v=venn-breakpoint-fix-v53-20260723">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -24,17 +24,49 @@
         </div>
         <div class="top-actions">
           <div class="progress hidden" id="progressText"></div>
-          <div class="mode-panel" id="modePanel" aria-label="Number mode">
-            <button class="mode-choice numbers-mode" type="button" id="withNumbersButton" aria-label="With numbers">
-              <span class="number-sketch n-one" aria-hidden="true">1</span>
-              <span class="number-sketch n-two" aria-hidden="true">2</span>
-              <span class="number-sketch n-three" aria-hidden="true">3</span>
+          <div class="settings-menu" id="settingsMenu">
+            <button class="settings-button" type="button" id="settingsButton" aria-label="Settings" aria-expanded="false" aria-controls="settingsPanel">
+              <span class="settings-gear" aria-hidden="true"></span>
             </button>
-            <button class="mode-choice icons-mode" type="button" id="withoutNumbersButton" aria-label="Without numbers">
-              <span class="choice-sketch sketch-face" aria-hidden="true"></span>
-              <span class="choice-sketch sketch-hat" aria-hidden="true"></span>
-              <span class="choice-sketch sketch-ears" aria-hidden="true"><span></span><span></span></span>
-            </button>
+            <div class="settings-panel hidden" id="settingsPanel" aria-label="Settings">
+              <h2 class="visually-hidden">Settings</h2>
+              <button class="settings-toggle" type="button" id="lightingSetting" role="switch" aria-label="Lighting" aria-checked="true" title="Lighting">
+                <svg class="settings-icon" viewBox="0 0 32 32" aria-hidden="true">
+                  <circle cx="16" cy="16" r="5"></circle>
+                  <path d="M16 3v5M16 24v5M3 16h5M24 16h5M6.8 6.8l3.6 3.6M21.6 21.6l3.6 3.6M25.2 6.8l-3.6 3.6M10.4 21.6l-3.6 3.6"></path>
+                </svg>
+              </button>
+              <button class="settings-toggle" type="button" id="popupSetting" role="switch" aria-label="Intersection popups" aria-checked="true" title="Intersection popups">
+                <svg class="settings-icon" viewBox="0 0 32 32" aria-hidden="true">
+                  <circle cx="11.5" cy="17" r="7.5"></circle>
+                  <circle cx="20.5" cy="17" r="7.5"></circle>
+                  <rect class="settings-icon-fill" x="12" y="5" width="8" height="7" rx="2"></rect>
+                </svg>
+              </button>
+              <button class="settings-toggle" type="button" id="numbersSetting" role="switch" aria-label="Box numbers" aria-checked="false" title="Box numbers">
+                <svg class="settings-icon settings-number-icon" viewBox="0 0 32 32" aria-hidden="true">
+                  <rect x="3" y="5" width="11" height="10" rx="2"></rect>
+                  <rect x="18" y="5" width="11" height="10" rx="2"></rect>
+                  <rect x="10.5" y="18" width="11" height="10" rx="2"></rect>
+                  <text x="8.5" y="12.5">1</text>
+                  <text x="23.5" y="12.5">2</text>
+                  <text x="16" y="25.5">3</text>
+                </svg>
+              </button>
+              <button class="settings-toggle" type="button" id="soundSetting" role="switch" aria-label="Sounds" aria-checked="true" title="Sounds">
+                <svg class="settings-icon" viewBox="0 0 32 32" aria-hidden="true">
+                  <path class="settings-icon-fill" d="M5 13h5l7-6v18l-7-6H5z"></path>
+                  <path d="M21 11c2.4 2.8 2.4 7.2 0 10M24.5 7.5c4.5 4.7 4.5 12.3 0 17"></path>
+                </svg>
+              </button>
+              <button class="settings-toggle" type="button" id="musicSetting" role="switch" aria-label="Background music" aria-checked="false" title="Background music">
+                <svg class="settings-icon" viewBox="0 0 32 32" aria-hidden="true">
+                  <path d="M13 22V8l13-3v14"></path>
+                  <ellipse class="settings-icon-fill" cx="9" cy="24" rx="4" ry="3"></ellipse>
+                  <ellipse class="settings-icon-fill" cx="22" cy="21" rx="4" ry="3"></ellipse>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -73,6 +105,12 @@
               </span>
               <span class="mission-word" aria-hidden="true">Circle Sort</span>
             </button>
+            <button class="mission-choice nested-mission hidden" type="button" id="nestedMissionButton" aria-label="Nested Sets">
+              <span class="nested-sketch" aria-hidden="true">
+                <span></span><span></span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Nested Sets</span>
+            </button>
             <button class="mission-choice selection-mission" type="button" id="selectionMissionButton" aria-label="Select from Venn">
               <span class="selection-sketch" aria-hidden="true">
                 <span></span><span></span>
@@ -103,14 +141,6 @@
               </span>
               <span class="mission-word" aria-hidden="true">Counting</span>
             </button>
-            <button class="mission-choice ordering-mission" type="button" id="orderingMissionButton" aria-label="Order">
-              <span class="order-sketch" aria-hidden="true">
-                <span class="order-letter">A</span>
-                <span class="order-arrow"></span>
-                <span class="order-letter">Z</span>
-              </span>
-              <span class="mission-word" aria-hidden="true">Order</span>
-            </button>
             <button class="mission-choice creator-mission" type="button" id="creatorMissionButton" aria-label="Create smileys">
               <span class="creator-sketch" aria-hidden="true">
                 <span></span><strong>+</strong>
@@ -122,6 +152,23 @@
                 <span></span><span></span><span></span><span></span>
               </span>
               <span class="mission-word" aria-hidden="true">Album</span>
+            </button>
+            <button class="mission-choice similarity-mission" type="button" id="similarityMissionButton" aria-label="Who is more similar?">
+              <span class="similarity-sketch" aria-hidden="true">
+                <span class="similarity-sketch-reference"></span>
+                <span class="similarity-sketch-choice similarity-sketch-left"></span>
+                <strong>?</strong>
+                <span class="similarity-sketch-choice similarity-sketch-right"></span>
+              </span>
+              <span class="mission-word" aria-hidden="true">More Similar?</span>
+            </button>
+            <button class="mission-choice ordering-mission" type="button" id="orderingMissionButton" aria-label="Order">
+              <span class="order-sketch" aria-hidden="true">
+                <span class="order-letter">A</span>
+                <span class="order-arrow"></span>
+                <span class="order-letter">Z</span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Order</span>
             </button>
             <button class="mission-choice statistics-mission" type="button" id="statisticsMissionButton" aria-label="Statistics">
               <span class="statistics-sketch" aria-hidden="true">
@@ -154,6 +201,16 @@
           <div class="column-head without-feature" id="withoutHeader" aria-label="Without the feature"></div>
           <div class="drop-zone" id="withZone" data-zone="with" aria-label="Smileys with the feature"></div>
           <div class="drop-zone" id="withoutZone" data-zone="without" aria-label="Smileys without the feature"></div>
+        </div>
+
+        <div class="similarity-panel hidden" id="similarityPanel">
+          <div class="similarity-stage" id="similarityStage" aria-label="Choose the smiley most similar to the reference">
+            <div class="similarity-reference" id="similarityReference" aria-label="Reference smiley"></div>
+            <div class="similarity-branch" aria-hidden="true">
+              <span></span><strong>?</strong><span></span>
+            </div>
+            <div class="similarity-choices" id="similarityChoices" aria-label="Similarity choices"></div>
+          </div>
         </div>
 
         <div class="ordering-panel hidden" id="orderingPanel">
@@ -270,6 +327,7 @@
             <div class="venn-zone zone-bc" id="vennBCZone" data-zone="venn-bc" aria-label="Second and third features"></div>
             <div class="venn-zone zone-abc" id="vennABCZone" data-zone="venn-abc" aria-label="All three features"></div>
             <div class="venn-zone zone-outside" id="vennOutsideZone" data-zone="venn-outside" aria-label="Outside all circles"></div>
+            <div class="venn-intersection-popup hidden" id="vennIntersectionPopup" role="img"></div>
           </div>
           <div class="selection-panel hidden" id="selectionPanel">
             <div class="selection-stage" id="selectionStage" aria-label="Select from the Venn diagram">
@@ -279,6 +337,20 @@
             </div>
           </div>
           <div class="selection-target-zone" id="selectionTargetZone" data-zone="selection-target" aria-label="Selection target"></div>
+        </div>
+
+        <div class="nested-panel hidden" id="nestedPanel">
+          <div class="nested-stage" id="nestedStage" aria-label="One category completely inside another category">
+            <div class="nested-outer-set">
+              <div class="nested-category-head nested-outer-head" id="nestedOuterHead" aria-label="Outer category"></div>
+              <div class="nested-zone nested-outer-zone" id="nestedOuterZone" data-zone="nested-outer" aria-label="Inside the outer category only"></div>
+              <div class="nested-inner-set">
+                <div class="nested-category-head nested-inner-head" id="nestedInnerHead" aria-label="Inner category"></div>
+                <div class="nested-zone nested-inner-zone" id="nestedInnerZone" data-zone="nested-inner" aria-label="Inside the inner category"></div>
+              </div>
+            </div>
+            <div class="nested-zone nested-outside-zone" id="nestedOutsideZone" data-zone="nested-outside" aria-label="Outside both categories"></div>
+          </div>
         </div>
 
         <div class="implicit-panel hidden" id="implicitPanel">
@@ -354,7 +426,7 @@
       </button>
     </template>
 
-    <script type="module" src="app.js?v=copyright-dedication-v12-20260718"></script>
+    <script type="module" src="app.js?v=no-voice-feedback-v51-20260723"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
