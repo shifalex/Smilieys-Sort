@@ -2,9 +2,17 @@ export const els = {
   setupPanel: document.querySelector("#setupPanel"),
   backButton: document.querySelector("#backButton"),
   missionPanel: document.querySelector("#missionPanel"),
-  modePanel: document.querySelector("#modePanel"),
   countPanel: document.querySelector("#countPanel"),
+  settingsMenu: document.querySelector("#settingsMenu"),
+  settingsButton: document.querySelector("#settingsButton"),
+  settingsPanel: document.querySelector("#settingsPanel"),
+  lightingSetting: document.querySelector("#lightingSetting"),
+  popupSetting: document.querySelector("#popupSetting"),
+  soundSetting: document.querySelector("#soundSetting"),
+  musicSetting: document.querySelector("#musicSetting"),
+  numbersSetting: document.querySelector("#numbersSetting"),
   featureMissionButton: document.querySelector("#featureMissionButton"),
+  similarityMissionButton: document.querySelector("#similarityMissionButton"),
   orderingMissionButton: document.querySelector("#orderingMissionButton"),
   carrollMissionButton: document.querySelector("#carrollMissionButton"),
   compareMissionButton: document.querySelector("#compareMissionButton"),
@@ -13,9 +21,9 @@ export const els = {
   selectionMissionButton: document.querySelector("#selectionMissionButton"),
   creatorMissionButton: document.querySelector("#creatorMissionButton"),
   vennMissionButton: document.querySelector("#vennMissionButton"),
+  nestedMissionButton: document.querySelector("#nestedMissionButton"),
+  countingMissionButton: document.querySelector("#countingMissionButton"),
   implicitMissionButton: document.querySelector("#implicitMissionButton"),
-  withNumbersButton: document.querySelector("#withNumbersButton"),
-  withoutNumbersButton: document.querySelector("#withoutNumbersButton"),
   workPanel: document.querySelector("#workPanel"),
   screenTitle: document.querySelector("#screenTitle"),
   countGrid: document.querySelector("#countGrid"),
@@ -28,6 +36,10 @@ export const els = {
   withZone: document.querySelector("#withZone"),
   withoutZone: document.querySelector("#withoutZone"),
   sortTable: document.querySelector("#sortTable"),
+  similarityPanel: document.querySelector("#similarityPanel"),
+  similarityStage: document.querySelector("#similarityStage"),
+  similarityReference: document.querySelector("#similarityReference"),
+  similarityChoices: document.querySelector("#similarityChoices"),
   orderingPanel: document.querySelector("#orderingPanel"),
   orderingZone: document.querySelector("#orderingZone"),
   criteriaList: document.querySelector("#criteriaList"),
@@ -91,6 +103,24 @@ export const els = {
   vennBCZone: document.querySelector("#vennBCZone"),
   vennABCZone: document.querySelector("#vennABCZone"),
   vennOutsideZone: document.querySelector("#vennOutsideZone"),
+  vennIntersectionPopup: document.querySelector("#vennIntersectionPopup"),
+  nestedPanel: document.querySelector("#nestedPanel"),
+  nestedStage: document.querySelector("#nestedStage"),
+  nestedOuterHead: document.querySelector("#nestedOuterHead"),
+  nestedInnerHead: document.querySelector("#nestedInnerHead"),
+  nestedOuterZone: document.querySelector("#nestedOuterZone"),
+  nestedInnerZone: document.querySelector("#nestedInnerZone"),
+  nestedOutsideZone: document.querySelector("#nestedOutsideZone"),
+  countingPanel: document.querySelector("#countingPanel"),
+  countingStage: document.querySelector("#countingStage"),
+  countingAHead: document.querySelector("#countingAHead"),
+  countingBHead: document.querySelector("#countingBHead"),
+  countingAClue: document.querySelector("#countingAClue"),
+  countingBClue: document.querySelector("#countingBClue"),
+  countingABClue: document.querySelector("#countingABClue"),
+  countingUnionClue: document.querySelector("#countingUnionClue"),
+  countingQuestion: document.querySelector("#countingQuestion"),
+  countingAnswers: document.querySelector("#countingAnswers"),
   implicitPanel: document.querySelector("#implicitPanel"),
   implicitAHead: document.querySelector("#implicitAHead"),
   implicitBHead: document.querySelector("#implicitBHead"),
@@ -126,6 +156,12 @@ export function getAllDropContainers() {
     els.vennBCZone,
     els.vennABCZone,
     els.vennOutsideZone,
+    els.nestedOuterZone,
+    els.nestedInnerZone,
+    els.nestedOutsideZone,
+    els.countingAClue,
+    els.countingBClue,
+    els.countingABClue,
     els.implicitAZone,
     els.implicitBZone,
     els.implicitABZone,
@@ -154,6 +190,12 @@ export function getZoneElement(zone) {
   if (zone === "venn-bc") return els.vennBCZone;
   if (zone === "venn-abc") return els.vennABCZone;
   if (zone === "venn-outside") return els.vennOutsideZone;
+  if (zone === "nested-outer") return els.nestedOuterZone;
+  if (zone === "nested-inner") return els.nestedInnerZone;
+  if (zone === "nested-outside") return els.nestedOutsideZone;
+  if (zone === "counting-a") return els.countingAClue;
+  if (zone === "counting-b") return els.countingBClue;
+  if (zone === "counting-ab") return els.countingABClue;
   if (zone === "selection-target") return els.selectionTargetZone;
   if (zone === "implicit-a") return els.implicitAZone;
   if (zone === "implicit-b") return els.implicitBZone;
