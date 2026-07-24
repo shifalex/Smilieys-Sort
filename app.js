@@ -21,9 +21,9 @@ import {
   makeStatisticsCoinSmileys,
 } from "./src/core/statistics.js";
 import { shuffle, triadKey } from "./src/core/utils.js";
-import { els, getAllDropContainers, getZoneElement } from "./src/app/elements.js?v=similarity-stage-v50-20260723";
+import { els, getAllDropContainers, getZoneElement } from "./src/app/elements.js?v=compare-tutorial-v89-20260724";
 import { setHeader, setProgress } from "./src/app/header.js";
-import { state } from "./src/app/state.js?v=similarity-stage-v50-20260723";
+import { state } from "./src/app/state.js?v=compare-tutorial-v89-20260724";
 
 const vennLightingStates = new WeakMap();
 // "all" lights every region inside the hovered circle.
@@ -35,6 +35,10 @@ let musicTimer = null;
 let musicStep = 0;
 let vennLightingSequence = 0;
 let carrollHighlightSequence = 0;
+let vennMotionLabFrame = null;
+let vennMotionLabLastTime = 0;
+let vennMotionLabDirection = 1;
+let comparisonTutorialSequence = 0;
 
 function init() {
   for (let count = 2; count <= 10; count += 1) {
@@ -62,12 +66,13 @@ function init() {
   els.statisticsMissionButton.addEventListener("click", () => startStatisticsMission());
   (els.averageMissionButton || document.querySelector("#averageMissionButton"))?.addEventListener("click", () => startAverageMission());
   els.cameraButton.addEventListener("click", () => capturePermutationPhoto());
-  els.creatorFinishButton.addEventListener("click", () => validateCreatorFinish());
+  els.creatorConfirmButton.addEventListener("click", () => validateCreatorCurrent());
   els.creatorResetButton.addEventListener("click", () => resetCreatorCurrent());
   els.implicitAHead.addEventListener("click", () => openImplicitChoiceList(0));
   els.implicitBHead.addEventListener("click", () => openImplicitChoiceList(1));
   setupVennLighting();
   setupSettingsMenu();
+  setupVennMotionLab();
   if (els.newSetButton) {
     els.newSetButton.addEventListener("click", () => showSetup());
   }
@@ -137,6 +142,157 @@ function setupSettingsMenu() {
     }
   });
   syncSettingsControls();
+}
+
+function setupVennMotionLab() {
+  if (!els.countingLabButton || !els.vennMotionLab) return;
+
+  const positions = [
+    [0.14, 0.34],
+    [0.2, 0.58],
+    [0.29, 0.25],
+    [0.35, 0.7],
+    [0.42, 0.44],
+    [0.5, 0.62],
+    [0.57, 0.28],
+    [0.64, 0.68],
+    [0.7, 0.44],
+    [0.78, 0.24],
+    [0.84, 0.58]
+  ];
+
+  els.vennMotionLabSmileys.replaceChildren(...positions.map(([x, y], index) => {
+    const smiley = document.createElement("span");
+    smiley.className = `venn-motion-lab-smiley ${index % 2 === 0 ? "is-yellow" : "is-red"}`;
+    smiley.dataset.x = String(x);
+    smiley.dataset.y = String(y);
+    smiley.style.left = `${x * 100}%`;
+    smiley.style.top = `${y * 100}%`;
+    smiley.setAttribute("aria-hidden", "true");
+    return smiley;
+  }));
+
+  els.countingLabButton.addEventListener("click", openVennMotionLab);
+  els.vennMotionLabClose.addEventListener("click", closeVennMotionLab);
+  els.vennMotionLab.addEventListener("click", event => {
+    if (event.target === els.vennMotionLab) closeVennMotionLab();
+  });
+  els.vennMotionPlayButton.addEventListener("click", () => {
+    setVennMotionLabPlaying(vennMotionLabFrame === null);
+  });
+  els.vennMotionDistance.addEventListener("input", () => {
+    setVennMotionLabPlaying(false);
+    renderVennMotionLab();
+  });
+  els.vennMotionSize.addEventListener("input", renderVennMotionLab);
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !els.vennMotionLab.classList.contains("hidden")) {
+      closeVennMotionLab();
+    }
+  });
+  window.addEventListener("resize", () => {
+    if (!els.vennMotionLab.classList.contains("hidden")) renderVennMotionLab();
+  });
+}
+
+function openVennMotionLab() {
+  els.vennMotionLab.classList.remove("hidden");
+  els.vennMotionDistance.value = "20";
+  els.vennMotionSize.value = "100";
+  vennMotionLabDirection = 1;
+  renderVennMotionLab();
+  setVennMotionLabPlaying(true);
+  els.vennMotionLabClose.focus();
+}
+
+function closeVennMotionLab() {
+  setVennMotionLabPlaying(false);
+  els.vennMotionLab.classList.add("hidden");
+  els.countingLabButton.focus();
+}
+
+function setVennMotionLabPlaying(playing) {
+  if (vennMotionLabFrame !== null) {
+    window.cancelAnimationFrame(vennMotionLabFrame);
+    vennMotionLabFrame = null;
+  }
+  vennMotionLabLastTime = 0;
+  els.vennMotionPlayButton.classList.toggle("is-playing", playing);
+  els.vennMotionPlayButton.setAttribute("aria-pressed", String(playing));
+  els.vennMotionPlayButton.setAttribute("aria-label", playing ? "Pause circle movement" : "Play circle movement");
+  if (playing) {
+    vennMotionLabFrame = window.requestAnimationFrame(advanceVennMotionLab);
+  }
+}
+
+function advanceVennMotionLab(timestamp) {
+  if (vennMotionLabLastTime === 0) vennMotionLabLastTime = timestamp;
+  const elapsed = Math.min(64, timestamp - vennMotionLabLastTime);
+  vennMotionLabLastTime = timestamp;
+  let value = Number(els.vennMotionDistance.value) + (vennMotionLabDirection * elapsed * 0.0125);
+  if (value >= 100) {
+    value = 100;
+    vennMotionLabDirection = -1;
+  } else if (value <= 0) {
+    value = 0;
+    vennMotionLabDirection = 1;
+  }
+  els.vennMotionDistance.value = String(value);
+  renderVennMotionLab();
+  vennMotionLabFrame = window.requestAnimationFrame(advanceVennMotionLab);
+}
+
+function renderVennMotionLab() {
+  const stage = els.vennMotionLabStage;
+  const width = stage.clientWidth;
+  const height = stage.clientHeight;
+  if (!width || !height) return;
+
+  const closeness = Number(els.vennMotionDistance.value) / 100;
+  const greenScale = Number(els.vennMotionSize.value) / 100;
+  const blueDiameter = Math.min(height * 0.8, width * 0.5);
+  const greenDiameter = blueDiameter * greenScale;
+  const maximumDistance = Math.max(0, width - blueDiameter - 38);
+  const centerDistance = maximumDistance * (1 - closeness);
+  const centerY = height * 0.5;
+  const centerA = { x: (width / 2) - (centerDistance / 2), y: centerY, radius: blueDiameter / 2 };
+  const centerB = { x: (width / 2) + (centerDistance / 2), y: centerY, radius: greenDiameter / 2 };
+
+  positionVennMotionCircle(els.vennMotionLabCircleA, centerA);
+  positionVennMotionCircle(els.vennMotionLabCircleB, centerB);
+
+  let aOnly = 0;
+  let bOnly = 0;
+  let both = 0;
+  [...els.vennMotionLabSmileys.children].forEach(smiley => {
+    const x = Number(smiley.dataset.x) * width;
+    const y = Number(smiley.dataset.y) * height;
+    const inA = Math.hypot(x - centerA.x, y - centerA.y) <= centerA.radius;
+    const inB = Math.hypot(x - centerB.x, y - centerB.y) <= centerB.radius;
+    smiley.classList.toggle("is-a-only", inA && !inB);
+    smiley.classList.toggle("is-b-only", inB && !inA);
+    smiley.classList.toggle("is-both", inA && inB);
+    smiley.classList.toggle("is-outside", !inA && !inB);
+    if (inA && inB) both += 1;
+    else if (inA) aOnly += 1;
+    else if (inB) bOnly += 1;
+  });
+
+  updateVennMotionCount(els.vennMotionCountA, aOnly, "Blue only");
+  updateVennMotionCount(els.vennMotionCountBoth, both, "Both circles");
+  updateVennMotionCount(els.vennMotionCountB, bOnly, "Green only");
+}
+
+function positionVennMotionCircle(circle, geometry) {
+  circle.style.width = `${geometry.radius * 2}px`;
+  circle.style.height = `${geometry.radius * 2}px`;
+  circle.style.left = `${geometry.x - geometry.radius}px`;
+  circle.style.top = `${geometry.y - geometry.radius}px`;
+}
+
+function updateVennMotionCount(node, value, label) {
+  node.textContent = String(value);
+  node.setAttribute("aria-label", `${label}: ${value}`);
 }
 
 function getAudioContext() {
@@ -937,6 +1093,8 @@ function startSelectionMission(clearPendingTimers = true) {
 function startCreatorMission(clearPendingTimers = true) {
   if (clearPendingTimers) {
     clearCycleTimers();
+    state.creatorRound = 0;
+    state.creatorEarlyThreeRound = 2 + Math.floor(Math.random() * 2);
   }
   els.workPanel.classList.remove("cycle-fading-out");
   state.mission = "creator";
@@ -945,6 +1103,7 @@ function startCreatorMission(clearPendingTimers = true) {
   state.featureIndex = 0;
   state.nextPlacementOrder = 1;
   state.smileys = [];
+  state.creatorRound += 1;
   state.creatorCriteria = chooseCreatorCriteria();
   state.creatorCurrent = makeBaseCreatorSmiley();
   state.createdSmileys = [];
@@ -1031,7 +1190,8 @@ function startCountingMission(clearPendingTimers = true) {
   state.phase = "counting";
   state.featureIndex = 0;
   state.nextPlacementOrder = 1;
-  const setup = makeCountingSet();
+  state.countingSequence = makeCountingSequence();
+  const setup = makeCountingSet(state.countingSequence[0]);
   state.requestedCount = setup.smileys.length;
   state.smileys = setup.smileys;
   state.activeFeatures = [];
@@ -1049,7 +1209,7 @@ function startCountingMission(clearPendingTimers = true) {
   resetCreatorState();
   state.countChallenge = null;
   state.setCycle = 0;
-  state.reuseGoal = 1;
+  state.reuseGoal = 3;
   resetMistakeCounter();
   els.setupPanel.classList.add("hidden");
   els.workPanel.classList.remove("hidden");
@@ -1115,6 +1275,7 @@ function showSetup() {
   state.creatorLevel = 1;
   state.permutationLevel = 1;
   state.countingLevel = 1;
+  state.countingSequence = [];
   state.countingLastVariant = null;
   state.statisticsStep = "beard-frequency";
   state.statisticsQuestionIndex = 0;
@@ -1130,6 +1291,8 @@ function showSetup() {
   state.vennCleanWins = 0;
   state.selectionCleanWins = 0;
   state.creatorCleanWins = 0;
+  state.creatorRound = 0;
+  state.creatorEarlyThreeRound = 2;
   state.permutationCleanWins = 0;
   state.phase = "setup";
   state.featureIndex = 0;
@@ -1163,7 +1326,7 @@ function startFeature(previousRects = null) {
   els.vennPanel.classList.add("hidden");
   els.implicitPanel.classList.add("hidden");
   els.countingPanel?.classList.add("hidden");
-  els.trayLabel.textContent = "Smileys";
+  els.trayLabel.textContent = "";
   if (els.featurePrompt) {
     els.featurePrompt.replaceChildren(createFeatureIcon(feature));
     els.featurePrompt.setAttribute("aria-label", `Sort by ${feature.label}`);
@@ -1295,13 +1458,114 @@ function getSelectionCriterionCount() {
   return 2;
 }
 
-function makeCountingSet() {
-  const challenge = makeCountingChallenge();
+function makeCountingSet(challenge = makeCountingChallenge()) {
   const selected = shuffle(makeAllSmileyCombinations()).slice(0, challenge.union);
   return {
     smileys: makePlayableSmileys(shuffle(selected)),
     criteria: [],
     challenge
+  };
+}
+
+function makeCountingSequence() {
+  return Math.random() < 0.5
+    ? makeCountingOverlapSequence()
+    : makeCountingRelationSequence();
+}
+
+function makeCountingOverlapSequence() {
+  const step = Math.random() < 0.5 ? 1 : 2;
+  const firstIntersection = step === 1 && Math.random() < 0.5 ? 2 : 1;
+  const intersections = [
+    firstIntersection,
+    firstIntersection + step,
+    firstIntersection + (step * 2)
+  ];
+  const union = step === 1 ? 8 : 11;
+  const swapSides = Math.random() < 0.5;
+  const geometries = ["overlap-small", "overlap-medium", "overlap-large"];
+  const challenges = intersections.map((intersection, index) => {
+    const sideOnlyTotal = union - intersection;
+    const smallerSide = Math.floor(sideOnlyTotal / 2);
+    const largerSide = sideOnlyTotal - smallerSide;
+    const aOnly = swapSides ? largerSide : smallerSide;
+    const bOnly = swapSides ? smallerSide : largerSide;
+    return makeCountingChallengeFromTotals({
+      leftTotal: aOnly + intersection,
+      rightTotal: bOnly + intersection,
+      intersection,
+      pattern: "partial-overlap",
+      geometry: geometries[index],
+      sequenceType: "overlap",
+      step
+    });
+  });
+  return Math.random() < 0.5 ? challenges : challenges.reverse();
+}
+
+function makeCountingRelationSequence() {
+  const blueIsContained = Math.random() < 0.5;
+  const innerTotal = 3;
+  const union = Math.random() < 0.5 ? 8 : 9;
+  const middleIntersection = Math.random() < 0.5 ? 1 : 2;
+  const disjointOuterTotal = union - innerTotal;
+  const intersectingOuterTotal = union + middleIntersection - innerTotal;
+  const challenges = [
+    makeCountingChallengeFromTotals({
+      leftTotal: blueIsContained ? innerTotal : disjointOuterTotal,
+      rightTotal: blueIsContained ? disjointOuterTotal : innerTotal,
+      intersection: 0,
+      pattern: "disjoint",
+      geometry: "disjoint",
+      sequenceType: "relation"
+    }),
+    makeCountingChallengeFromTotals({
+      leftTotal: blueIsContained ? innerTotal : intersectingOuterTotal,
+      rightTotal: blueIsContained ? intersectingOuterTotal : innerTotal,
+      intersection: middleIntersection,
+      pattern: "partial-overlap",
+      geometry: "overlap-medium",
+      sequenceType: "relation"
+    }),
+    makeCountingChallengeFromTotals({
+      leftTotal: blueIsContained ? innerTotal : union,
+      rightTotal: blueIsContained ? union : innerTotal,
+      intersection: innerTotal,
+      pattern: blueIsContained ? "blue-contained" : "green-contained",
+      geometry: blueIsContained ? "blue-contained" : "green-contained",
+      sequenceType: "relation"
+    })
+  ];
+  return Math.random() < 0.5 ? challenges : challenges.reverse();
+}
+
+function makeCountingChallengeFromTotals({
+  leftTotal,
+  rightTotal,
+  intersection,
+  pattern,
+  geometry,
+  sequenceType,
+  step = null
+}) {
+  const aOnly = leftTotal - intersection;
+  const bOnly = rightTotal - intersection;
+  const union = aOnly + bOnly + intersection;
+  const variant = "circle-totals";
+  return {
+    aOnly,
+    bOnly,
+    intersection,
+    union,
+    leftTotal,
+    rightTotal,
+    mode: "find-intersection",
+    variant,
+    pattern,
+    geometry,
+    sequenceType,
+    step,
+    answerChoices: []
   };
 }
 
@@ -1475,7 +1739,11 @@ function toggleSimilarityFeature(smiley, featureKey) {
 }
 
 function chooseCreatorCriteria() {
-  return shuffle([...features]).slice(0, state.creatorLevel >= 2 ? 3 : 2);
+  const needsThreeCriteria =
+    state.creatorRound === 1 ||
+    state.creatorRound === state.creatorEarlyThreeRound;
+  const criterionCount = (needsThreeCriteria || Math.random() < 0.5) ? 3 : 2;
+  return shuffle([...features]).slice(0, criterionCount);
 }
 
 function makeBaseCreatorSmiley() {
@@ -1666,6 +1934,7 @@ function describeSmiley(smiley) {
 function beginDrag(event, node) {
   event.preventDefault();
   if (isCelebrating()) return;
+  if (state.phase === "implicit" && state.implicitDemoInProgress) return;
   if (state.phase === "statistics" && state.statisticsStep === "average-only") {
     beginAverageSmileyDrag(event, node);
     return;
@@ -2283,7 +2552,7 @@ function validateCurrentPhase() {
     return;
   }
   if (state.phase === "creator") {
-    validateCreatorCurrent();
+    validateCreatorFinish();
     return;
   }
   if (state.phase === "venn") {
@@ -2434,12 +2703,19 @@ function animateSmileysFrom(previousRects, excludedId = null, speed = "normal") 
     node.getBoundingClientRect();
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
       node.style.transition = "";
-      node.classList.add(speed === "fast" ? "returning-fast" : "returning");
+      node.classList.add(
+        speed === "fast"
+          ? "returning-fast"
+          : speed === "counting"
+            ? "returning-counting"
+            : "returning"
+      );
       node.style.transform = "";
     }));
     node.addEventListener("transitionend", () => {
       node.classList.remove("returning");
       node.classList.remove("returning-fast");
+      node.classList.remove("returning-counting");
       node.classList.remove("is-traveling");
       node.style.transition = "";
     }, { once: true });
@@ -2752,6 +3028,8 @@ function resetSelectionState() {
 function resetImplicitGuessState() {
   state.implicitGuesses = [null, null];
   state.implicitChoiceIndex = null;
+  state.implicitDemoInProgress = false;
+  els.implicitPanel?.removeAttribute("aria-busy");
 }
 
 function resetCreatorState() {
@@ -2903,7 +3181,7 @@ function startOrderingPhase(previousRects = null) {
   els.vennPanel.classList.add("hidden");
   els.implicitPanel.classList.add("hidden");
   els.countingPanel?.classList.add("hidden");
-  els.trayLabel.textContent = "Smileys";
+  els.trayLabel.textContent = "";
   els.criteriaList.replaceChildren(createOrderingCriteriaChain(state.activeOrderingCriteria));
   els.criteriaList.setAttribute("aria-label", `Ordering criteria: ${state.activeOrderingCriteria.map(criterion => criterion.label).join(", then ")}`);
   setHeader("Order", `${state.setCycle + 1} of ${state.reuseGoal}`);
@@ -2932,7 +3210,7 @@ function startStatisticsPhase(previousRects = null) {
   els.countingPanel?.classList.add("hidden");
   els.statisticsPanel.classList.remove("hidden");
   els.tray.dataset.count = String(state.smileys.length);
-  els.trayLabel.textContent = state.statisticsStep === "beard-frequency" || state.statisticsStep === "average-only" ? "Smileys" : "";
+  els.trayLabel.textContent = "";
   els.submitSortButton.classList.remove("hidden");
   els.submitSortButton.textContent = "OK";
   unlockSubmitButton();
@@ -3775,7 +4053,7 @@ function startCarrollPhase(previousRects = null) {
   els.vennPanel.classList.add("hidden");
   els.implicitPanel.classList.add("hidden");
   els.countingPanel?.classList.add("hidden");
-  els.trayLabel.textContent = "Smileys";
+  els.trayLabel.textContent = "";
   renderCarrollAxes();
   setHeader("Two Feature Sort", `${state.setCycle + 1} of ${state.reuseGoal}`);
   els.submitSortButton.textContent = "OK";
@@ -3808,6 +4086,7 @@ function startComparePhase() {
   els.submitSortButton.textContent = "OK";
   unlockSubmitButton();
   renderCompare();
+  startComparisonIconTutorial("compare");
 }
 
 function renderCompare() {
@@ -3877,8 +4156,46 @@ function setCompareVisualX(featureKey, enabled) {
     .forEach(card => card.classList.toggle("has-visual-x", enabled));
 }
 
+function startComparisonIconTutorial(kind) {
+  const flag = kind === "compare" ? "compareTutorialShown" : "simpleCompareTutorialShown";
+  if (state[flag]) return;
+  state[flag] = true;
+  const selector = kind === "compare"
+    ? "#compareCriteriaBank .compare-criterion-card"
+    : "#simpleCompareTable .simple-mark-button";
+  const target = document.querySelector(selector);
+  if (!target) return;
+
+  const sequence = ++comparisonTutorialSequence;
+  const pointer = document.createElement("span");
+  pointer.className = "comparison-tutorial-pointer";
+  pointer.setAttribute("aria-hidden", "true");
+  target.classList.add("is-comparison-tutorial");
+  target.append(pointer);
+
+  const scheduleStep = (delay, callback) => {
+    scheduleCycleTimer(() => {
+      if (sequence !== comparisonTutorialSequence || !target.isConnected) return;
+      callback();
+    }, delay);
+  };
+
+  scheduleStep(700, () => target.classList.add("tutorial-shows-x", "is-tutorial-tapped"));
+  scheduleStep(1550, () => target.classList.remove("tutorial-shows-x", "is-tutorial-tapped"));
+  scheduleStep(2050, () => stopComparisonIconTutorial());
+}
+
+function stopComparisonIconTutorial() {
+  comparisonTutorialSequence += 1;
+  document.querySelectorAll(".is-comparison-tutorial").forEach(target => {
+    target.classList.remove("is-comparison-tutorial", "is-tutorial-tapped", "tutorial-shows-x");
+    target.querySelector(".comparison-tutorial-pointer")?.remove();
+  });
+}
+
 function beginCompareCriteriaDrag(event, node) {
   event.preventDefault();
+  stopComparisonIconTutorial();
   if (isCelebrating()) return;
   if (state.dragging) {
     cancelActiveDrag();
@@ -4128,6 +4445,7 @@ function startSimpleComparePhase() {
   els.submitSortButton.textContent = "OK";
   unlockSubmitButton();
   renderSimpleCompare();
+  startComparisonIconTutorial("simple");
 }
 
 function renderSimpleCompare() {
@@ -4162,6 +4480,7 @@ function renderSimpleCompare() {
       button.classList.toggle("has-simple-x", !value);
       button.setAttribute("aria-label", `${feature.label} ${value ? "marked present" : "marked absent"}`);
       button.addEventListener("click", () => {
+        stopComparisonIconTutorial();
         playInteractionSound(value ? "mark" : "unmark");
         setSimpleFeatureMark(feature.key, smileyIndex, !value);
         renderSimpleCompare();
@@ -4177,6 +4496,7 @@ function renderSimpleCompare() {
     relationButton.textContent = relation === "different" ? "\u2260" : "=";
     relationButton.classList.toggle("is-different", relation === "different");
     relationButton.addEventListener("click", () => {
+      stopComparisonIconTutorial();
       playInteractionSound(relation === "different" ? "unmark" : "mark");
       setSimpleRelationMark(feature.key, relation === "different" ? "equal" : "different");
       renderSimpleCompare();
@@ -4286,6 +4606,7 @@ function startPermutationPhase() {
   state.phase = "permutation";
   resetMistakeCounter();
   state.nextPlacementOrder = state.smileys.length;
+  els.cameraButton.disabled = false;
   els.sortTable.classList.add("hidden");
   els.orderingPanel.classList.add("hidden");
   els.statisticsPanel.classList.add("hidden");
@@ -4537,7 +4858,23 @@ function capturePermutationPhoto() {
 function completePermutationAlbum() {
   recordCleanProgress(!state.permutationHadMistake, "permutationCleanWins", "permutationLevel");
   resetMistakeCounter();
-  window.setTimeout(() => startPermutationMission(false), 620);
+  state.phase = "celebrating";
+  els.cameraButton.disabled = true;
+  els.workPanel.classList.add("is-celebrating", "smileys-wiggling");
+  celebrateCycle(CYCLE_CELEBRATION_MS);
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("smileys-wiggling");
+    els.workPanel.classList.add("smileys-exiting");
+  }, CYCLE_CELEBRATION_MS);
+  scheduleCycleTimer(() => {
+    startPermutationMission(false);
+    els.workPanel.classList.remove("is-celebrating");
+    els.workPanel.classList.remove("smileys-exiting");
+    els.workPanel.classList.add("cycle-fading-in");
+  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS);
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("cycle-fading-in");
+  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS + CYCLE_ENTER_MS);
 }
 
 function getPermutationOrder() {
@@ -4583,7 +4920,7 @@ function startSelectionPhase(previousRects = null) {
   resetCountChallenge();
   els.vennPanel.classList.remove("hidden");
   els.selectionPanel.classList.remove("hidden");
-  els.trayLabel.textContent = "Smileys";
+  els.trayLabel.textContent = "";
   renderVennHeadlines();
   els.vennStage.classList.toggle("two-circle", state.activeVennCriteria.length <= 2);
   setHeader("Select", `${state.setCycle + 1} of ${state.reuseGoal}`);
@@ -4675,14 +5012,13 @@ function startCreatorPhase() {
   els.creatorPanel.classList.remove("hidden");
   els.trayLabel.textContent = "Criteria";
   els.tray.replaceChildren();
-  setHeader("Create", `${state.createdSmileys.length} of ${2 ** state.creatorCriteria.length}`);
+  setHeader("Create");
   els.submitSortButton.textContent = "OK";
   unlockSubmitButton();
   renderCreator();
 }
 
 function renderCreator(newCreatedId = null) {
-  setProgress(`${state.createdSmileys.length} of ${2 ** state.creatorCriteria.length}`);
   els.creatorCriteriaBank.replaceChildren(...state.creatorCriteria.map(createCreatorCriterionCard));
   els.creatorSmileyTarget.replaceChildren(createSmileyNode({ ...state.creatorCurrent, id: "creator-current" }));
   els.createdSmileys.replaceChildren(...state.createdSmileys.map(smiley => {
@@ -4850,7 +5186,7 @@ function startVennPhase(previousRects = null) {
   els.vennPanel.classList.remove("hidden");
   els.implicitPanel.classList.add("hidden");
   els.countingPanel?.classList.add("hidden");
-  els.trayLabel.textContent = "Smileys";
+  els.trayLabel.textContent = "";
   els.vennStage.classList.toggle("two-circle", state.activeVennCriteria.length <= 2);
   renderVennHeadlines();
   setHeader("Circle Sort", `${state.setCycle + 1} of ${state.reuseGoal}`);
@@ -4888,7 +5224,7 @@ function startNestedPhase(previousRects = null) {
   els.countingPanel?.classList.add("hidden");
   resetCountChallenge();
   els.nestedPanel.classList.remove("hidden");
-  els.trayLabel.textContent = "Smileys";
+  els.trayLabel.textContent = "";
   renderNestedHeadlines();
   setHeader("Nested Sets", `${state.setCycle + 1} of ${state.reuseGoal}`);
   els.submitSortButton.textContent = "OK";
@@ -4939,8 +5275,8 @@ function startCountingPhase(previousRects = null) {
   resetCountChallenge();
   resetCountingZonesForLayout();
   els.countingPanel?.classList.remove("hidden");
-  els.trayLabel.textContent = "Smileys";
-  setHeader("Counting", getCountingProgressText());
+  els.trayLabel.textContent = "";
+  setHeader("Counting", `${state.setCycle + 1} of ${state.reuseGoal}`);
   els.submitSortButton.textContent = "OK";
   unlockSubmitButton();
   renderCounting();
@@ -4963,6 +5299,10 @@ function resetCountingZonesForLayout() {
   els.countingQuestion?.replaceChildren();
   els.countingAnswers?.replaceChildren();
   els.countingStage?.classList.remove("has-circle-totals");
+  els.countingStage?.removeAttribute("data-counting-geometry");
+  [els.countingAClue, els.countingBClue, els.countingABClue]
+    .filter(Boolean)
+    .forEach(zone => zone.classList.remove("is-empty-counting-region"));
 }
 
 function renderCounting() {
@@ -4972,7 +5312,11 @@ function renderCounting() {
   els.countingBHead.setAttribute("aria-label", "Right circle");
 
   const challenge = state.countingChallenge;
+  els.countingStage.dataset.countingGeometry = challenge.geometry || "overlap-medium";
   els.countingStage.classList.toggle("has-circle-totals", challenge.variant === "circle-totals");
+  els.countingAClue.classList.toggle("is-empty-counting-region", challenge.aOnly === 0);
+  els.countingBClue.classList.toggle("is-empty-counting-region", challenge.bOnly === 0);
+  els.countingABClue.classList.toggle("is-empty-counting-region", challenge.intersection === 0);
   if (challenge.variant === "circle-totals") {
     renderCountingCircleTotal(els.countingAHead, challenge.leftTotal, "Left circle");
     renderCountingCircleTotal(els.countingBHead, challenge.rightTotal, "Right circle");
@@ -5005,11 +5349,11 @@ function renderCountingQuestion() {
   const challenge = state.countingChallenge;
   els.countingAnswers.replaceChildren();
   if (challenge.variant === "circle-totals") {
-    els.countingQuestion.textContent = "Put the smileys so each circle has its number.";
+    els.countingQuestion.textContent = "";
     return;
   }
   const expected = challenge.intersection;
-  els.countingQuestion.textContent = "How many smileys go in both?";
+  els.countingQuestion.textContent = "How many go in both?";
   (challenge.answerChoices || getCountingAnswerChoices(expected)).forEach(value => {
     const button = document.createElement("button");
     button.type = "button";
@@ -5031,11 +5375,6 @@ function getCountingAnswerChoices(expected) {
     choices.add(candidate);
   }
   return shuffle([...choices]).sort((first, second) => first - second);
-}
-
-function getCountingProgressText() {
-  if (state.countingChallenge?.variant === "circle-totals") return "Put the smileys";
-  return state.countingChallenge?.mode === "find-union" ? "Find union" : "Find both";
 }
 
 function startImplicitPhase(previousRects = null) {
@@ -5061,7 +5400,7 @@ function startImplicitPhase(previousRects = null) {
   els.selectionPanel.classList.add("hidden");
   els.creatorPanel.classList.add("hidden");
   els.implicitPanel.classList.remove("hidden");
-  els.trayLabel.textContent = "Smileys";
+  els.trayLabel.textContent = "";
   setHeader("Find the Rule", `${state.setCycle + 1} of ${state.reuseGoal}`);
   els.submitSortButton.textContent = "OK";
   unlockSubmitButton();
@@ -5070,6 +5409,44 @@ function startImplicitPhase(previousRects = null) {
   if (previousRects) {
     animateSmileysFrom(previousRects);
   }
+  startImplicitDemonstration(Boolean(previousRects));
+}
+
+function startImplicitDemonstration(waitForPreviousTransition = false) {
+  const orderedSmileys = [...state.smileys].sort((first, second) =>
+    first.originalOrder - second.originalOrder
+  );
+  const demonstrationSmileys = orderedSmileys.slice(0, Math.ceil(orderedSmileys.length / 2));
+  const returnAnimationDuration = 3000;
+  const reflectionPause = 750;
+  const firstMoveDelay = waitForPreviousTransition
+    ? returnAnimationDuration + reflectionPause
+    : 280;
+  const moveInterval = 460;
+
+  state.implicitDemoInProgress = true;
+  els.implicitPanel.setAttribute("aria-busy", "true");
+  lockSubmitButton();
+
+  demonstrationSmileys.forEach((smiley, index) => {
+    scheduleCycleTimer(() => {
+      if (state.phase !== "implicit") return;
+      const previousRects = collectSmileyRects();
+      smiley.zone = getImplicitZoneForSmiley(smiley, state.activeImplicitCriteria);
+      smiley.placementOrder = state.nextPlacementOrder;
+      state.nextPlacementOrder += 1;
+      renderSmileys();
+      animateSmileysFrom(previousRects, null, "fast");
+    }, firstMoveDelay + (index * moveInterval));
+  });
+
+  const finishDelay = firstMoveDelay + (demonstrationSmileys.length * moveInterval);
+  scheduleCycleTimer(() => {
+    if (state.phase !== "implicit") return;
+    state.implicitDemoInProgress = false;
+    els.implicitPanel.removeAttribute("aria-busy");
+    unlockSubmitButton();
+  }, finishDelay);
 }
 
 function renderCarrollAxes() {
@@ -5132,7 +5509,7 @@ function renderImplicitHeadlines() {
 }
 
 function openImplicitChoiceList(index) {
-  if (state.phase !== "implicit") return;
+  if (state.phase !== "implicit" || state.implicitDemoInProgress) return;
   state.implicitChoiceIndex = state.implicitChoiceIndex === index ? null : index;
   renderImplicitChoiceList();
 }
@@ -5448,6 +5825,12 @@ function isCountingAnswerCorrect() {
 }
 
 function validateImplicit() {
+  if (areImplicitGuessesCorrect()) {
+    resetMistakeCounter();
+    completeMissionAfterCorrectSort();
+    return;
+  }
+
   const allSorted = state.smileys.every(smiley => smiley.zone !== "tray");
   if (!allSorted) {
     state.mistakeStreak += 1;
@@ -5465,13 +5848,7 @@ function validateImplicit() {
     return;
   }
 
-  if (!areImplicitGuessesCorrect()) {
-    tiltImplicitRuleHeads();
-    return;
-  }
-
-  resetMistakeCounter();
-  completeMissionAfterCorrectSort();
+  tiltImplicitRuleHeads();
 }
 
 function areImplicitGuessesCorrect() {
@@ -5548,6 +5925,10 @@ function compareByOrderingCriteria(first, second) {
 function finishSet(previousRects) {
   clearCycleTimers();
   const completedMission = state.mission;
+  if (completedMission === "counting") {
+    finishCountingCycle();
+    return;
+  }
   const reuseSmileys = shouldReuseSmileysForNextCycle(completedMission);
   if (reuseSmileys) {
     finishReusableCycle(completedMission);
@@ -5615,24 +5996,68 @@ function shouldReuseSmileysForNextCycle(mission) {
 }
 
 function finishReusableCycle(mission) {
-  const previousRects = collectSmileyRects();
-  state.phase = "transitioning";
+  state.phase = "celebrating";
   lockSubmitButton();
-  els.workPanel.classList.add("is-celebrating");
-  els.workPanel.classList.add("criteria-fading-out");
+  els.workPanel.classList.add("is-celebrating", "smileys-wiggling");
+  celebrateCycle(CYCLE_CELEBRATION_MS);
   scheduleCycleTimer(() => {
-    startNextCycleWithSameSmileys(mission, previousRects);
+    els.workPanel.classList.remove("smileys-wiggling");
+    els.workPanel.classList.add("smileys-exiting", "criteria-fading-out");
+  }, CYCLE_CELEBRATION_MS);
+  scheduleCycleTimer(() => {
+    startNextCycleWithSameSmileys(mission);
     els.workPanel.classList.remove("is-celebrating");
+    els.workPanel.classList.remove("smileys-exiting");
     els.workPanel.classList.remove("criteria-fading-out");
-    els.workPanel.classList.add("criteria-fading-in");
-  }, 760);
+    els.workPanel.classList.add("cycle-fading-in", "criteria-fading-in");
+  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS);
   scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("cycle-fading-in");
     els.workPanel.classList.remove("criteria-fading-in");
-  }, 1520);
+  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS + CYCLE_ENTER_MS);
 }
 
 function shouldAnimateRoomSmileys(mission) {
   return mission !== "creator";
+}
+
+function finishCountingCycle() {
+  state.phase = "celebrating";
+  els.workPanel.classList.add("is-celebrating", "smileys-wiggling");
+  lockSubmitButton();
+  celebrateCycle(CYCLE_CELEBRATION_MS);
+
+  scheduleCycleTimer(() => {
+    state.phase = "counting";
+    els.workPanel.classList.remove("smileys-wiggling");
+    const previousRects = collectSmileyRects();
+    state.smileys.forEach(smiley => {
+      smiley.zone = "tray";
+      smiley.placementOrder = smiley.originalOrder;
+    });
+    renderSmileys();
+    animateSmileysFrom(previousRects, null, "counting");
+  }, CYCLE_CELEBRATION_MS);
+
+  scheduleCycleTimer(() => {
+    if (state.setCycle + 1 < state.reuseGoal) {
+      startNextCountingCycle();
+    } else {
+      startCountingMission(false);
+    }
+    els.workPanel.classList.remove("is-celebrating");
+  }, CYCLE_CELEBRATION_MS + 900);
+}
+
+function startNextCountingCycle() {
+  state.setCycle += 1;
+  const challenge = state.countingSequence[state.setCycle];
+  state.activeVennCriteria = [];
+  state.countingChallenge = challenge;
+  state.countingAnswer = null;
+  state.countingHadMistake = false;
+  state.countingLastVariant = challenge.variant;
+  startCountingPhase();
 }
 
 function startNextMissionRound(completedMission) {
@@ -5745,6 +6170,7 @@ function scheduleCycleTimer(callback, delay) {
 function clearCycleTimers() {
   state.cycleTimers.forEach(timer => window.clearTimeout(timer));
   state.cycleTimers = [];
+  stopComparisonIconTutorial();
   if (els.workPanel) {
     els.workPanel.classList.remove("cycle-fading-out");
     els.workPanel.classList.remove("cycle-fading-in");
