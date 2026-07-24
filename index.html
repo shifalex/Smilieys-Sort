@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=venn-breakpoint-fix-v53-20260723">
+    <link rel="stylesheet" href="styles.css?v=compare-tutorial-v91-20260724">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -192,7 +192,7 @@
 
       <section class="work-panel hidden" id="workPanel">
         <div class="tray-wrap">
-          <p class="tray-label" id="trayLabel">Smileys</p>
+          <p class="tray-label" id="trayLabel"></p>
           <div class="smiley-tray" id="tray" data-zone="tray"></div>
         </div>
 
@@ -280,13 +280,13 @@
           <div class="permutation-head">
             <h2 class="panel-title">Album</h2>
           </div>
-          <div class="album-pages" id="albumPages" aria-label="Permutation photos"></div>
           <div class="permutation-capture-row">
             <div class="permutation-order-zone" id="permutationOrderZone" data-zone="permutation-order" aria-label="Order smileys for the photo"></div>
             <button class="camera-button" type="button" id="cameraButton" aria-label="Take photo of this order">
               <span aria-hidden="true"></span>
             </button>
           </div>
+          <div class="album-pages" id="albumPages" aria-label="Permutation photos"></div>
         </div>
 
         <div class="creator-panel hidden" id="creatorPanel">
@@ -298,9 +298,14 @@
             <div class="creator-workbench">
               <div class="creator-current-tools">
                 <div class="creator-smiley-target" id="creatorSmileyTarget" aria-label="Current smiley"></div>
-                <button class="creator-reset-button" type="button" id="creatorResetButton" aria-label="Reset current smiley">
-                  <span aria-hidden="true"></span>
-                </button>
+                <div class="creator-tool-buttons">
+                  <button class="creator-reset-button" type="button" id="creatorResetButton" aria-label="Reset current smiley">
+                    <span aria-hidden="true"></span>
+                  </button>
+                  <button class="creator-confirm-button" type="button" id="creatorConfirmButton" aria-label="Add current smiley">
+                    <span aria-hidden="true"></span>
+                  </button>
+                </div>
               </div>
             </div>
             <div class="created-smileys" id="createdSmileys" aria-label="Created smileys"></div>
@@ -308,7 +313,7 @@
         </div>
 
         <div class="venn-panel hidden" id="vennPanel">
-          <p class="selection-diagram-caption">Smileys</p>
+          <p class="selection-diagram-caption"></p>
           <div class="venn-stage" id="vennStage" aria-label="Three circle sorting diagram">
             <div class="venn-circle circle-a" data-venn-circle="a">
               <button class="venn-circle-head" id="vennAHead" type="button" data-venn-category="a" aria-pressed="false"></button>
@@ -371,6 +376,10 @@
 
         <div class="counting-panel hidden" id="countingPanel">
           <div class="counting-stage" id="countingStage" aria-label="Count circle groups">
+            <button class="counting-lab-button" type="button" id="countingLabButton" aria-label="Explore moving circles" title="Explore moving circles">
+              <span class="counting-lab-circles" aria-hidden="true"></span>
+              <span class="counting-lab-play" aria-hidden="true"></span>
+            </button>
             <div class="counting-circle counting-circle-a" data-venn-circle="a">
               <button class="counting-circle-head" id="countingAHead" type="button" data-venn-category="a" aria-pressed="false"></button>
             </div>
@@ -389,7 +398,6 @@
             <div class="counting-answer-row" id="countingAnswers" aria-label="Counting answers"></div>
           </div>
           <button class="primary-button submit-sort-button" type="button" id="submitSortButton">OK</button>
-          <button class="secondary-button creator-finish-button" type="button" id="creatorFinishButton">Finish</button>
         </div>
 
       </section>
@@ -415,6 +423,35 @@
       <span class="firework firework-four" aria-hidden="true"></span>
     </div>
 
+    <div class="venn-motion-lab hidden" id="vennMotionLab" role="dialog" aria-modal="true" aria-label="Moving circles laboratory">
+      <div class="venn-motion-lab-card">
+        <button class="venn-motion-lab-close" type="button" id="vennMotionLabClose" aria-label="Close moving circles laboratory"></button>
+        <div class="venn-motion-lab-stage" id="vennMotionLabStage" aria-label="Two moving circles with fixed smileys">
+          <div class="venn-motion-lab-circle venn-motion-lab-circle-a" id="vennMotionLabCircleA"></div>
+          <div class="venn-motion-lab-circle venn-motion-lab-circle-b" id="vennMotionLabCircleB"></div>
+          <div class="venn-motion-lab-smileys" id="vennMotionLabSmileys"></div>
+          <div class="venn-motion-lab-counts" aria-live="polite">
+            <span class="venn-motion-count venn-motion-count-a" id="vennMotionCountA"></span>
+            <span class="venn-motion-count venn-motion-count-both" id="vennMotionCountBoth"></span>
+            <span class="venn-motion-count venn-motion-count-b" id="vennMotionCountB"></span>
+          </div>
+        </div>
+        <div class="venn-motion-lab-controls">
+          <button class="venn-motion-play-button" type="button" id="vennMotionPlayButton" aria-label="Play circle movement" aria-pressed="false">
+            <span aria-hidden="true"></span>
+          </button>
+          <label class="venn-motion-slider-row">
+            <span class="venn-motion-distance-icon" aria-hidden="true"></span>
+            <input type="range" id="vennMotionDistance" min="0" max="100" value="35" aria-label="Circle closeness">
+          </label>
+          <label class="venn-motion-slider-row">
+            <span class="venn-motion-size-icon" aria-hidden="true"></span>
+            <input type="range" id="vennMotionSize" min="55" max="100" value="100" aria-label="Green circle size">
+          </label>
+        </div>
+      </div>
+    </div>
+
     <template id="smileyTemplate">
       <button class="smiley" type="button">
         <span class="ear left-ear"></span>
@@ -426,7 +463,7 @@
       </button>
     </template>
 
-    <script type="module" src="app.js?v=no-voice-feedback-v51-20260723"></script>
+    <script type="module" src="app.js?v=compare-tutorial-v91-20260724"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
