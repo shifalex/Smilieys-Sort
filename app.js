@@ -1468,9 +1468,7 @@ function makeCountingSet(challenge = makeCountingChallenge()) {
 }
 
 function makeCountingSequence() {
-  return Math.random() < 0.5
-    ? makeCountingOverlapSequence()
-    : makeCountingRelationSequence();
+  return makeCountingOverlapSequence();
 }
 
 function makeCountingOverlapSequence() {
@@ -1481,10 +1479,9 @@ function makeCountingOverlapSequence() {
     firstIntersection + step,
     firstIntersection + (step * 2)
   ];
-  const union = step === 1 ? 8 : 11;
+  const union = step === 1 && Math.random() < 0.5 ? 6 : 7;
   const swapSides = Math.random() < 0.5;
-  const geometries = ["overlap-small", "overlap-medium", "overlap-large"];
-  const challenges = intersections.map((intersection, index) => {
+  const challenges = intersections.map(intersection => {
     const sideOnlyTotal = union - intersection;
     const smallerSide = Math.floor(sideOnlyTotal / 2);
     const largerSide = sideOnlyTotal - smallerSide;
@@ -1495,47 +1492,11 @@ function makeCountingOverlapSequence() {
       rightTotal: bOnly + intersection,
       intersection,
       pattern: "partial-overlap",
-      geometry: geometries[index],
+      geometry: "standard",
       sequenceType: "overlap",
       step
     });
   });
-  return Math.random() < 0.5 ? challenges : challenges.reverse();
-}
-
-function makeCountingRelationSequence() {
-  const blueIsContained = Math.random() < 0.5;
-  const innerTotal = 3;
-  const union = Math.random() < 0.5 ? 8 : 9;
-  const middleIntersection = Math.random() < 0.5 ? 1 : 2;
-  const disjointOuterTotal = union - innerTotal;
-  const intersectingOuterTotal = union + middleIntersection - innerTotal;
-  const challenges = [
-    makeCountingChallengeFromTotals({
-      leftTotal: blueIsContained ? innerTotal : disjointOuterTotal,
-      rightTotal: blueIsContained ? disjointOuterTotal : innerTotal,
-      intersection: 0,
-      pattern: "disjoint",
-      geometry: "disjoint",
-      sequenceType: "relation"
-    }),
-    makeCountingChallengeFromTotals({
-      leftTotal: blueIsContained ? innerTotal : intersectingOuterTotal,
-      rightTotal: blueIsContained ? intersectingOuterTotal : innerTotal,
-      intersection: middleIntersection,
-      pattern: "partial-overlap",
-      geometry: "overlap-medium",
-      sequenceType: "relation"
-    }),
-    makeCountingChallengeFromTotals({
-      leftTotal: blueIsContained ? innerTotal : union,
-      rightTotal: blueIsContained ? union : innerTotal,
-      intersection: innerTotal,
-      pattern: blueIsContained ? "blue-contained" : "green-contained",
-      geometry: blueIsContained ? "blue-contained" : "green-contained",
-      sequenceType: "relation"
-    })
-  ];
   return Math.random() < 0.5 ? challenges : challenges.reverse();
 }
 
@@ -1570,29 +1531,12 @@ function makeCountingChallengeFromTotals({
 }
 
 function makeCountingChallenge() {
-  const pattern = shuffle([
-    "partial-overlap",
-    "blue-contained",
-    "green-contained",
-    "disjoint"
-  ])[0];
-  let aOnly = 1 + Math.floor(Math.random() * 3);
-  let bOnly = 1 + Math.floor(Math.random() * 3);
-  let intersection = 1 + Math.floor(Math.random() * 3);
-
-  if (pattern === "blue-contained") {
-    aOnly = 0;
-    bOnly = 1 + Math.floor(Math.random() * 4);
-    intersection = 1 + Math.floor(Math.random() * 4);
-  } else if (pattern === "green-contained") {
-    aOnly = 1 + Math.floor(Math.random() * 4);
-    bOnly = 0;
-    intersection = 1 + Math.floor(Math.random() * 4);
-  } else if (pattern === "disjoint") {
-    aOnly = 1 + Math.floor(Math.random() * 4);
-    bOnly = 1 + Math.floor(Math.random() * 4);
-    intersection = 0;
-  }
+  const pattern = "partial-overlap";
+  const intersection = 1 + Math.floor(Math.random() * 3);
+  const aOnlyMax = Math.min(3, 6 - intersection);
+  const aOnly = 1 + Math.floor(Math.random() * aOnlyMax);
+  const bOnlyMax = Math.min(3, 7 - intersection - aOnly);
+  const bOnly = 1 + Math.floor(Math.random() * bOnlyMax);
 
   const union = aOnly + bOnly + intersection;
   const leftTotal = aOnly + intersection;
@@ -1601,7 +1545,19 @@ function makeCountingChallenge() {
   const mode = "find-intersection";
   const expected = intersection;
   const answerChoices = variant === "parts" ? getCountingAnswerChoices(expected) : [];
-  return { aOnly, bOnly, intersection, union, leftTotal, rightTotal, mode, variant, pattern, answerChoices };
+  return {
+    aOnly,
+    bOnly,
+    intersection,
+    union,
+    leftTotal,
+    rightTotal,
+    mode,
+    variant,
+    pattern,
+    geometry: "standard",
+    answerChoices
+  };
 }
 
 function chooseSelectionSourceZone() {
@@ -1739,9 +1695,10 @@ function toggleSimilarityFeature(smiley, featureKey) {
 }
 
 function chooseCreatorCriteria() {
-  const needsThreeCriteria =
-    state.creatorRound === 1 ||
-    state.creatorRound === state.creatorEarlyThreeRound;
+  if (state.creatorRound === 1) {
+    return shuffle([...features]).slice(0, 2);
+  }
+  const needsThreeCriteria = state.creatorRound === state.creatorEarlyThreeRound;
   const criterionCount = (needsThreeCriteria || Math.random() < 0.5) ? 3 : 2;
   return shuffle([...features]).slice(0, criterionCount);
 }
@@ -5312,7 +5269,7 @@ function renderCounting() {
   els.countingBHead.setAttribute("aria-label", "Right circle");
 
   const challenge = state.countingChallenge;
-  els.countingStage.dataset.countingGeometry = challenge.geometry || "overlap-medium";
+  els.countingStage.dataset.countingGeometry = "standard";
   els.countingStage.classList.toggle("has-circle-totals", challenge.variant === "circle-totals");
   els.countingAClue.classList.toggle("is-empty-counting-region", challenge.aOnly === 0);
   els.countingBClue.classList.toggle("is-empty-counting-region", challenge.bOnly === 0);
