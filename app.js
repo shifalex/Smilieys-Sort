@@ -5953,25 +5953,19 @@ function shouldReuseSmileysForNextCycle(mission) {
 }
 
 function finishReusableCycle(mission) {
-  state.phase = "celebrating";
+  const previousRects = collectSmileyRects();
+  state.phase = "transitioning";
   lockSubmitButton();
-  els.workPanel.classList.add("is-celebrating", "smileys-wiggling");
-  celebrateCycle(CYCLE_CELEBRATION_MS);
+  els.workPanel.classList.add("is-celebrating", "criteria-fading-out");
   scheduleCycleTimer(() => {
-    els.workPanel.classList.remove("smileys-wiggling");
-    els.workPanel.classList.add("smileys-exiting", "criteria-fading-out");
-  }, CYCLE_CELEBRATION_MS);
-  scheduleCycleTimer(() => {
-    startNextCycleWithSameSmileys(mission);
+    startNextCycleWithSameSmileys(mission, previousRects);
     els.workPanel.classList.remove("is-celebrating");
-    els.workPanel.classList.remove("smileys-exiting");
     els.workPanel.classList.remove("criteria-fading-out");
-    els.workPanel.classList.add("cycle-fading-in", "criteria-fading-in");
-  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS);
+    els.workPanel.classList.add("criteria-fading-in");
+  }, 760);
   scheduleCycleTimer(() => {
-    els.workPanel.classList.remove("cycle-fading-in");
     els.workPanel.classList.remove("criteria-fading-in");
-  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS + CYCLE_ENTER_MS);
+  }, 1520);
 }
 
 function shouldAnimateRoomSmileys(mission) {
