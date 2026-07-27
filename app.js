@@ -2110,9 +2110,9 @@ function moveDrag(event) {
   const { node, offsetX, offsetY } = state.dragging;
   node.style.left = `${event.clientX - offsetX}px`;
   node.style.top = `${event.clientY - offsetY}px`;
-  const position = getDraggedSmileyCenter(event.clientX, event.clientY);
-  markDropTarget(position.x, position.y);
-  previewOrderingDrag(position.x, position.y);
+  const resolvedDrop = resolveDraggedSmileyDrop(event.clientX, event.clientY);
+  markDropTarget(resolvedDrop.target);
+  previewOrderingDrag(resolvedDrop.x, resolvedDrop.y);
 }
 
 function getDraggedSmileyCenter(fallbackX, fallbackY) {
@@ -2121,6 +2121,24 @@ function getDraggedSmileyCenter(fallbackX, fallbackY) {
   return {
     x: rect.left + (rect.width / 2),
     y: rect.top + (rect.height / 2)
+  };
+}
+
+function resolveDraggedSmileyDrop(pointerX, pointerY) {
+  const smileyPosition = getDraggedSmileyCenter(pointerX, pointerY);
+  const smileyTarget = getDropTarget(smileyPosition.x, smileyPosition.y);
+  const pointerTarget = getDropTarget(pointerX, pointerY);
+  if (smileyTarget) {
+    return {
+      target: smileyTarget,
+      x: smileyPosition.x,
+      y: smileyPosition.y
+    };
+  }
+  return {
+    target: pointerTarget,
+    x: pointerX,
+    y: pointerY
   };
 }
 
@@ -2139,8 +2157,8 @@ function endDrag(event) {
   if (!state.dragging) return;
   event.preventDefault();
   const previousRects = collectSmileyRects();
-  const position = getDraggedSmileyCenter(event.clientX, event.clientY);
-  const dropZone = getDropTarget(position.x, position.y);
+  const resolvedDrop = resolveDraggedSmileyDrop(event.clientX, event.clientY);
+  const dropZone = resolvedDrop.target;
   const carrollDropZone = state.phase === "carroll" && dropZone?.classList.contains("carroll-zone")
     ? dropZone.dataset.zone
     : null;
@@ -2167,7 +2185,7 @@ function endDrag(event) {
     return;
   }
   if (dropZone && smiley) {
-    moveSmileyToZone(smiley, dropZone.dataset.zone, position.x, position.y);
+    moveSmileyToZone(smiley, dropZone.dataset.zone, resolvedDrop.x, resolvedDrop.y);
   } else if (smiley) {
     restoreDraggedSmiley(smiley);
   }
@@ -2458,8 +2476,7 @@ function cleanupDrag() {
   clearDropMarks();
 }
 
-function markDropTarget(x, y) {
-  const target = getDropTarget(x, y);
+function markDropTarget(target) {
   getAllDropContainers().forEach(zone => zone.classList.toggle("is-over", zone === target));
   if (target) {
     if (state.phase === "carroll" && target.classList.contains("carroll-zone")) {
