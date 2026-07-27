@@ -2110,8 +2110,18 @@ function moveDrag(event) {
   const { node, offsetX, offsetY } = state.dragging;
   node.style.left = `${event.clientX - offsetX}px`;
   node.style.top = `${event.clientY - offsetY}px`;
-  markDropTarget(event.clientX, event.clientY);
-  previewOrderingDrag(event.clientX, event.clientY);
+  const position = getDraggedSmileyCenter(event.clientX, event.clientY);
+  markDropTarget(position.x, position.y);
+  previewOrderingDrag(position.x, position.y);
+}
+
+function getDraggedSmileyCenter(fallbackX, fallbackY) {
+  const rect = state.dragging?.node?.getBoundingClientRect();
+  if (!rect) return { x: fallbackX, y: fallbackY };
+  return {
+    x: rect.left + (rect.width / 2),
+    y: rect.top + (rect.height / 2)
+  };
 }
 
 function prepareTouchDragLift(node, event) {
@@ -2129,7 +2139,8 @@ function endDrag(event) {
   if (!state.dragging) return;
   event.preventDefault();
   const previousRects = collectSmileyRects();
-  const dropZone = getDropTarget(event.clientX, event.clientY);
+  const position = getDraggedSmileyCenter(event.clientX, event.clientY);
+  const dropZone = getDropTarget(position.x, position.y);
   const carrollDropZone = state.phase === "carroll" && dropZone?.classList.contains("carroll-zone")
     ? dropZone.dataset.zone
     : null;
@@ -2156,7 +2167,7 @@ function endDrag(event) {
     return;
   }
   if (dropZone && smiley) {
-    moveSmileyToZone(smiley, dropZone.dataset.zone, event.clientX, event.clientY);
+    moveSmileyToZone(smiley, dropZone.dataset.zone, position.x, position.y);
   } else if (smiley) {
     restoreDraggedSmiley(smiley);
   }
