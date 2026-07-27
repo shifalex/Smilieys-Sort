@@ -18,6 +18,7 @@ export const els = {
   compareMissionButton: document.querySelector("#compareMissionButton"),
   simpleCompareMissionButton: document.querySelector("#simpleCompareMissionButton"),
   permutationMissionButton: document.querySelector("#permutationMissionButton"),
+  pairCombinationMissionButton: document.querySelector("#pairCombinationMissionButton"),
   selectionMissionButton: document.querySelector("#selectionMissionButton"),
   creatorMissionButton: document.querySelector("#creatorMissionButton"),
   vennMissionButton: document.querySelector("#vennMissionButton"),
@@ -80,6 +81,12 @@ export const els = {
   permutationOrderZone: document.querySelector("#permutationOrderZone"),
   albumPages: document.querySelector("#albumPages"),
   cameraButton: document.querySelector("#cameraButton"),
+  pairCombinationPanel: document.querySelector("#pairCombinationPanel"),
+  pairSourceA: document.querySelector("#pairSourceA"),
+  pairSourceB: document.querySelector("#pairSourceB"),
+  pairCaptureZone: document.querySelector("#pairCaptureZone"),
+  pairAlbumPages: document.querySelector("#pairAlbumPages"),
+  pairCameraButton: document.querySelector("#pairCameraButton"),
   selectionPanel: document.querySelector("#selectionPanel"),
   selectionStage: document.querySelector("#selectionStage"),
   selectionCaption: document.querySelector("#selectionCaption"),
@@ -157,6 +164,9 @@ export function getAllDropContainers() {
     els.orderingZone,
     els.statisticsOrderZone,
     els.permutationOrderZone,
+    els.pairSourceA,
+    els.pairSourceB,
+    els.pairCaptureZone,
     els.carrollWithWithZone,
     els.carrollWithoutWithZone,
     els.carrollWithWithoutZone,
@@ -187,6 +197,9 @@ export function getAllDropContainers() {
 export function getZoneElement(zone) {
   if (zone === "order") return els.orderingZone;
   if (zone === "statistics-order") return els.statisticsOrderZone;
+  if (zone === "pair-source-a") return els.pairSourceA;
+  if (zone === "pair-source-b") return els.pairSourceB;
+  if (zone === "pair-capture") return els.pairCaptureZone;
   if (zone.startsWith("statistics-beard-")) return document.querySelector(`[data-zone="${CSS.escape(zone)}"]`);
   if (zone === "permutation-order") return els.permutationOrderZone;
   if (zone === "with") return els.withZone;

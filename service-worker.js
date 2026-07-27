@@ -1,9 +1,9 @@
-const CACHE_NAME = "smileys-sorting-game-v158";
+const CACHE_NAME = "smileys-sorting-game-v164";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=create-equal-height-v99-20260724",
-  "./app.js?v=create-equal-height-v99-20260724",
+  "./styles.css?v=album-ok-v105-20260727",
+  "./app.js?v=album-ok-v105-20260727",
   "./manifest.webmanifest",
   "./icons/icon-180.png",
   "./icons/icon-192.png",
