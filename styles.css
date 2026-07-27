@@ -5712,7 +5712,7 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
 
 .eye {
   position: absolute;
-  top: 32.8%;
+  top: 25%;
   width: 10.9%;
   height: 15.6%;
   border-radius: 50%;
@@ -5720,28 +5720,28 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
 }
 
 .left-eye {
-  left: 28.1%;
+  left: 22%;
 }
 
 .right-eye {
-  right: 28.1%;
+  right: 22%;
 }
 
 .mouth {
   position: absolute;
   left: 50%;
-  bottom: 18.8%;
-  width: 39.1%;
-  height: 20.3%;
-  border-bottom: 4px solid #2b2521;
+  bottom: 12%;
+  width: 42%;
+  height: 18%;
+  border-bottom: 3px solid #2b2521;
   border-radius: 0 0 30px 30px;
   transform: translateX(-50%);
 }
 
 .neutral .mouth {
-  bottom: 14.1%;
+  bottom: 16%;
   height: 0;
-  border-bottom-width: 4px;
+  border-bottom-width: 3px;
   border-radius: 0;
 }
 
@@ -5766,10 +5766,10 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
 .hat::before {
   content: "";
   position: absolute;
-  left: 7px;
-  right: 7px;
-  bottom: 2px;
-  height: 5px;
+  left: 13%;
+  right: 13%;
+  bottom: 9%;
+  height: 22%;
   border-radius: 999px;
   background: #ffffff;
   box-shadow: none;
@@ -5778,14 +5778,14 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
 .hat::after {
   content: "";
   position: absolute;
-  left: -9px;
-  right: -9px;
-  bottom: -5px;
-  height: 8px;
-  border: 3px solid #17476b;
+  left: -17%;
+  right: -17%;
+  bottom: -22%;
+  height: 35%;
+  border: 2px solid #17476b;
   border-radius: 999px;
   background: #2f6f9f;
-  box-shadow: 0 3px 0 rgba(23, 32, 42, 0.12);
+  box-shadow: 0 2px 0 rgba(23, 32, 42, 0.12);
 }
 
 .has-hat .hat {
@@ -6644,39 +6644,6 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
     height: 42px;
   }
 
-  .eye {
-    top: 19px;
-  }
-
-  .left-eye {
-    left: 16px;
-  }
-
-  .right-eye {
-    right: 16px;
-  }
-
-  .mouth {
-    bottom: 10px;
-  }
-
-  .neutral .mouth {
-    bottom: 8px;
-  }
-
-  .hat {
-    top: -13px;
-    width: 48px;
-    height: 20px;
-  }
-
-  .left-ear {
-    left: -9px;
-  }
-
-  .right-ear {
-    right: -9px;
-  }
 }
 
 @media (max-width: 820px) {
