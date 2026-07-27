@@ -35,6 +35,7 @@ let musicTimer = null;
 let musicStep = 0;
 let vennLightingSequence = 0;
 let carrollHighlightSequence = 0;
+let carrollHighlightedZone = null;
 let vennMotionLabFrame = null;
 let vennMotionLabLastTime = 0;
 let vennMotionLabDirection = 1;
@@ -57,6 +58,7 @@ function init() {
   els.compareMissionButton.addEventListener("click", () => startCompareMission());
   els.simpleCompareMissionButton.addEventListener("click", () => startSimpleCompareMission());
   els.permutationMissionButton.addEventListener("click", () => startPermutationMission());
+  els.pairCombinationMissionButton.addEventListener("click", () => startPairCombinationMission());
   els.selectionMissionButton.addEventListener("click", () => startSelectionMission());
   els.creatorMissionButton.addEventListener("click", () => startCreatorMission());
   els.vennMissionButton.addEventListener("click", () => startVennMission());
@@ -66,6 +68,7 @@ function init() {
   els.statisticsMissionButton.addEventListener("click", () => startStatisticsMission());
   (els.averageMissionButton || document.querySelector("#averageMissionButton"))?.addEventListener("click", () => startAverageMission());
   els.cameraButton.addEventListener("click", () => capturePermutationPhoto());
+  els.pairCameraButton.addEventListener("click", () => capturePairCombinationPhoto());
   els.creatorConfirmButton.addEventListener("click", () => validateCreatorCurrent());
   els.creatorResetButton.addEventListener("click", () => resetCreatorCurrent());
   els.implicitAHead.addEventListener("click", () => openImplicitChoiceList(0));
@@ -1055,6 +1058,41 @@ function startPermutationMission(clearPendingTimers = true) {
   startPermutationPhase();
 }
 
+function startPairCombinationMission(clearPendingTimers = true) {
+  if (clearPendingTimers) clearCycleTimers();
+  els.workPanel.classList.remove("cycle-fading-out");
+  state.pairCombinationGroupSizes = shuffle([[2, 2], [2, 3], [3, 2]])[0];
+  const count = getPairCombinationSmileyCount();
+  state.mission = "pair-combination";
+  state.requestedCount = count;
+  state.phase = "pair-combination";
+  state.featureIndex = 0;
+  state.nextPlacementOrder = 1;
+  state.smileys = makeSmileys(count, featureCountForSmileyCount(count));
+  state.smileys.forEach((smiley, index) => {
+    smiley.pairSource = index < state.pairCombinationGroupSizes[0] ? "a" : "b";
+    smiley.zone = `pair-source-${smiley.pairSource}`;
+    smiley.originalOrder = index;
+    smiley.placementOrder = index;
+  });
+  state.pairCombinationAlbum = [];
+  state.pairCombinationHadMistake = false;
+  state.activeFeatures = [];
+  state.activeOrderingCriteria = [];
+  state.activeCarrollCriteria = [];
+  state.activeVennCriteria = [];
+  state.activeImplicitCriteria = [];
+  resetCompareState();
+  resetSelectionState();
+  resetCreatorState();
+  state.countChallenge = null;
+  resetMistakeCounter();
+  els.setupPanel.classList.add("hidden");
+  els.workPanel.classList.remove("hidden");
+  els.backButton.classList.remove("hidden");
+  startPairCombinationPhase();
+}
+
 function startSelectionMission(clearPendingTimers = true) {
   if (clearPendingTimers) {
     clearCycleTimers();
@@ -1782,6 +1820,7 @@ function triadForFeature(smileys, feature) {
 
 function renderSmileys(excludedId = null) {
   cleanupStrandedDragNodes();
+  els.pairCombinationPanel?.classList.toggle("hidden", state.phase !== "pair-combination");
   getAllDropContainers().forEach(zone => zone.replaceChildren());
   getSmileysInRenderOrder().forEach(smiley => {
     if (smiley.id === excludedId) {
@@ -1804,6 +1843,9 @@ function renderSmileys(excludedId = null) {
   }
   if (!excludedId && state.phase === "counting") {
     renderCounting();
+  }
+  if (!excludedId && state.phase === "pair-combination") {
+    updatePairCombinationCameraState();
   }
 }
 
@@ -1919,6 +1961,7 @@ function beginDrag(event, node) {
   node.style.width = `${rect.width}px`;
   node.style.height = `${rect.height}px`;
   node.classList.add("dragging");
+  prepareTouchDragLift(node, event);
   document.body.append(node);
   document.addEventListener("pointermove", moveDrag);
   document.addEventListener("pointerup", endDrag);
@@ -2071,6 +2114,17 @@ function moveDrag(event) {
   previewOrderingDrag(event.clientX, event.clientY);
 }
 
+function prepareTouchDragLift(node, event) {
+  if (event.pointerType !== "touch") return;
+  node.classList.add("touch-dragging");
+  node.style.setProperty("--touch-drag-lift", "0px");
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+    if (node.isConnected && node.classList.contains("dragging")) {
+      node.style.setProperty("--touch-drag-lift", "-56px");
+    }
+  }));
+}
+
 function endDrag(event) {
   if (!state.dragging) return;
   event.preventDefault();
@@ -2080,6 +2134,17 @@ function endDrag(event) {
     ? dropZone.dataset.zone
     : null;
   const smiley = state.smileys.find(item => item.id === state.dragging.id);
+  if (dropZone && smiley && shouldRejectPairCombinationDrop(smiley, dropZone.dataset.zone)) {
+    const returnRects = new Map([[smiley.id, state.dragging.node.getBoundingClientRect()]]);
+    restoreDraggedSmiley(smiley);
+    cleanupDrag();
+    renderSmileys();
+    animateSmileysFrom(returnRects, null, "fast");
+    markRejectedSmiley(smiley.id);
+    state.pairCombinationHadMistake = true;
+    playInteractionSound("return");
+    return;
+  }
   if (dropZone && smiley && shouldRejectImplicitDrop(smiley, dropZone.dataset.zone)) {
     const returnRects = new Map([[smiley.id, state.dragging.node.getBoundingClientRect()]]);
     restoreDraggedSmiley(smiley);
@@ -2102,6 +2167,21 @@ function endDrag(event) {
   if (carrollDropZone) {
     pulseCarrollCrossHighlight(carrollDropZone);
   }
+}
+
+function shouldRejectPairCombinationDrop(smiley, zone) {
+  if (state.phase !== "pair-combination") return false;
+  if (zone === "pair-capture") {
+    return state.smileys.some(item =>
+      item.id !== smiley.id &&
+      item.zone === "pair-capture" &&
+      item.pairSource === smiley.pairSource
+    );
+  }
+  if (zone?.startsWith("pair-source-")) {
+    return zone !== `pair-source-${smiley.pairSource}`;
+  }
+  return false;
 }
 
 function shouldRejectImplicitDrop(smiley, zone) {
@@ -2339,13 +2419,16 @@ function cleanupDrag() {
 }
 
 function markDropTarget(x, y) {
-  clearDropMarks();
   const target = getDropTarget(x, y);
+  getAllDropContainers().forEach(zone => zone.classList.toggle("is-over", zone === target));
   if (target) {
-    target.classList.add("is-over");
     if (state.phase === "carroll" && target.classList.contains("carroll-zone")) {
       applyCarrollCrossHighlight(target.dataset.zone);
+    } else if (carrollHighlightedZone) {
+      clearCarrollCrossHighlight();
     }
+  } else if (carrollHighlightedZone) {
+    clearCarrollCrossHighlight();
   }
 }
 
@@ -2366,6 +2449,8 @@ function applyCarrollCrossHighlight(zone) {
   }
   const coordinates = getCarrollCoordinates(zone);
   if (!coordinates) return;
+  if (carrollHighlightedZone === zone) return;
+  carrollHighlightedZone = zone;
 
   els.carrollTable.querySelectorAll(".carroll-zone").forEach(cell => {
     const cellCoordinates = getCarrollCoordinates(cell.dataset.zone);
@@ -2381,6 +2466,7 @@ function applyCarrollCrossHighlight(zone) {
 
 function clearCarrollCrossHighlight() {
   carrollHighlightSequence += 1;
+  carrollHighlightedZone = null;
   els.carrollTable?.classList.remove("is-carroll-drop-pulse");
   els.carrollTable?.querySelectorAll(".is-carroll-column-guide, .is-carroll-row-guide").forEach(node => {
     node.classList.remove("is-carroll-column-guide", "is-carroll-row-guide");
@@ -2400,7 +2486,7 @@ function pulseCarrollCrossHighlight(zone) {
 }
 
 function getDropTarget(x, y) {
-  if (state.phase === "ordering" || state.phase === "permutation" || (state.phase === "statistics" && state.statisticsStep === "beard-ranking")) {
+  if (state.phase === "ordering" || state.phase === "permutation" || state.phase === "pair-combination" || (state.phase === "statistics" && state.statisticsStep === "beard-ranking")) {
     const orderZone = getActiveOrderZone();
     if (isPointInsideElement(orderZone, x, y)) return orderZone;
     if (isPointInsideElement(els.tray, x, y)) return els.tray;
@@ -2448,6 +2534,9 @@ function getDropTarget(x, y) {
   }
   if (state.phase === "permutation") {
     return element.closest(".permutation-order-zone, .smiley-tray");
+  }
+  if (state.phase === "pair-combination") {
+    return element.closest(".pair-capture-zone, .permutation-source-zone");
   }
   if (state.phase === "carroll") {
     return element.closest(".carroll-zone, .smiley-tray");
@@ -2501,7 +2590,15 @@ function validateCurrentPhase() {
     return;
   }
   if (state.phase === "permutation") {
-    capturePermutationPhoto();
+    if (state.permutationAlbum.length >= getPermutationGoal()) {
+      completePermutationAlbum();
+    }
+    return;
+  }
+  if (state.phase === "pair-combination") {
+    if (state.pairCombinationAlbum.length >= getPairCombinationGoal()) {
+      completePairCombinationAlbum();
+    }
     return;
   }
   if (state.phase === "selection") {
@@ -2663,6 +2760,8 @@ function animateSmileysFrom(previousRects, excludedId = null, speed = "normal") 
       node.classList.add(
         speed === "fast"
           ? "returning-fast"
+          : speed === "pair"
+            ? "returning-pair"
           : speed === "counting"
             ? "returning-counting"
             : "returning"
@@ -2672,6 +2771,7 @@ function animateSmileysFrom(previousRects, excludedId = null, speed = "normal") 
     node.addEventListener("transitionend", () => {
       node.classList.remove("returning");
       node.classList.remove("returning-fast");
+      node.classList.remove("returning-pair");
       node.classList.remove("returning-counting");
       node.classList.remove("is-traveling");
       node.style.transition = "";
@@ -2974,6 +3074,9 @@ function resetSimpleCompareState() {
 function resetPermutationState() {
   state.permutationAlbum = [];
   state.permutationHadMistake = false;
+  state.pairCombinationAlbum = [];
+  state.pairCombinationHadMistake = false;
+  state.pairCombinationGroupSizes = [2, 2];
 }
 
 function resetSelectionState() {
@@ -4580,9 +4683,139 @@ function startPermutationPhase() {
   els.trayLabel.textContent = "";
   els.tray.replaceChildren();
   setHeader("Album", `${state.permutationAlbum.length} of ${getPermutationGoal()}`);
-  els.submitSortButton.classList.add("hidden");
+  els.submitSortButton.textContent = "OK";
+  lockSubmitButton();
   renderPermutationAlbum();
   renderSmileys();
+}
+
+function startPairCombinationPhase() {
+  state.phase = "pair-combination";
+  resetMistakeCounter();
+  state.nextPlacementOrder = state.smileys.length;
+  els.sortTable.classList.add("hidden");
+  els.orderingPanel.classList.add("hidden");
+  els.statisticsPanel.classList.add("hidden");
+  els.carrollPanel.classList.add("hidden");
+  els.comparePanel.classList.add("hidden");
+  els.simpleComparePanel.classList.add("hidden");
+  els.selectionPanel.classList.add("hidden");
+  els.creatorPanel.classList.add("hidden");
+  els.vennPanel.classList.add("hidden");
+  els.implicitPanel.classList.add("hidden");
+  els.countingPanel?.classList.add("hidden");
+  els.permutationPanel.classList.add("hidden");
+  resetCountChallenge();
+  els.pairCombinationPanel.classList.remove("hidden");
+  els.trayLabel.textContent = "";
+  els.tray.replaceChildren();
+  setHeader("Pairs", `${state.pairCombinationAlbum.length} of ${getPairCombinationGoal()}`);
+  els.submitSortButton.textContent = "OK";
+  lockSubmitButton();
+  renderPairCombinationAlbum();
+  renderSmileys();
+}
+
+function renderPairCombinationAlbum() {
+  els.pairAlbumPages.replaceChildren();
+  const page = document.createElement("div");
+  page.className = "album-page";
+  page.style.setProperty("--album-columns", "2");
+  for (let index = 0; index < 6; index += 1) {
+    const photo = state.pairCombinationAlbum[index];
+    const slot = document.createElement("div");
+    slot.className = "album-photo";
+    if (photo) {
+      slot.classList.add("has-photo");
+      if (index === state.pairCombinationAlbum.length - 1) {
+        slot.classList.add("pair-photo-entering");
+        slot.addEventListener("animationend", () => slot.classList.remove("pair-photo-entering"), { once: true });
+      }
+      photo.order.forEach(smileyId => {
+        const smiley = state.smileys.find(item => item.id === smileyId);
+        if (!smiley) return;
+        const node = createSmileyNode({ ...smiley, id: `pair-photo-${index}-${smiley.id}` });
+        node.classList.add("photo-smiley");
+        slot.append(node);
+      });
+    }
+    page.append(slot);
+  }
+  els.pairAlbumPages.append(page);
+}
+
+function getPairCombinationOrder() {
+  return state.smileys
+    .filter(smiley => smiley.zone === "pair-capture")
+    .sort((first, second) => first.pairSource.localeCompare(second.pairSource));
+}
+
+function updatePairCombinationCameraState() {
+  if (!els.pairCameraButton || state.phase !== "pair-combination") return;
+  const pair = getPairCombinationOrder();
+  els.pairCameraButton.disabled = pair.length !== 2 ||
+    new Set(pair.map(smiley => smiley.pairSource)).size !== 2;
+}
+
+function capturePairCombinationPhoto() {
+  if (state.phase !== "pair-combination") return;
+  const pair = getPairCombinationOrder();
+  if (pair.length !== 2 || new Set(pair.map(smiley => smiley.pairSource)).size !== 2) return;
+  const key = pair.map(smiley => smiley.id).join("|");
+  const existing = state.pairCombinationAlbum.find(photo => photo.key === key);
+  if (existing) {
+    state.pairCombinationHadMistake = true;
+    if (navigator.vibrate) navigator.vibrate(80);
+    return;
+  }
+  const previousRects = collectSmileyRects();
+  state.pairCombinationAlbum.push({ key, order: pair.map(smiley => smiley.id) });
+  pair.forEach(smiley => {
+    smiley.zone = `pair-source-${smiley.pairSource}`;
+    smiley.placementOrder = smiley.originalOrder;
+  });
+  renderPairCombinationAlbum();
+  renderSmileys();
+  animateSmileysFrom(previousRects, null, "pair");
+  setProgress(`${state.pairCombinationAlbum.length} of ${getPairCombinationGoal()}`);
+  if (state.pairCombinationAlbum.length >= getPairCombinationGoal()) {
+    els.pairCameraButton.disabled = true;
+    window.setTimeout(() => {
+      if (state.phase === "pair-combination" &&
+          state.pairCombinationAlbum.length >= getPairCombinationGoal()) {
+        unlockSubmitButton();
+      }
+    }, 720);
+  }
+}
+
+function completePairCombinationAlbum() {
+  resetMistakeCounter();
+  state.phase = "celebrating";
+  els.pairCameraButton.disabled = true;
+  lockSubmitButton();
+  els.workPanel.classList.add("is-celebrating", "smileys-wiggling");
+  celebrateCycle(CYCLE_CELEBRATION_MS);
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("smileys-wiggling");
+    els.workPanel.classList.add("smileys-exiting");
+  }, CYCLE_CELEBRATION_MS);
+  scheduleCycleTimer(() => {
+    startPairCombinationMission(false);
+    els.workPanel.classList.remove("is-celebrating", "smileys-exiting");
+    els.workPanel.classList.add("cycle-fading-in");
+  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS);
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("cycle-fading-in");
+  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS + CYCLE_ENTER_MS);
+}
+
+function getPairCombinationSmileyCount() {
+  return state.pairCombinationGroupSizes[0] + state.pairCombinationGroupSizes[1];
+}
+
+function getPairCombinationGoal() {
+  return state.pairCombinationGroupSizes[0] * state.pairCombinationGroupSizes[1];
 }
 
 function renderPermutationAlbum() {
@@ -4646,6 +4879,7 @@ function beginAlbumPhotoDrag(event, node) {
   dragNode.style.top = `${rect.top}px`;
   dragNode.classList.add("dragging");
   dragNode.classList.remove("drag-source");
+  prepareTouchDragLift(dragNode, event);
   document.body.append(dragNode);
   document.addEventListener("pointermove", moveAlbumPhotoDrag);
   document.addEventListener("pointerup", endAlbumPhotoDrag);
@@ -4808,7 +5042,8 @@ function capturePermutationPhoto() {
   renderPermutationAlbum();
   setProgress(`${state.permutationAlbum.length} of ${getPermutationGoal()}`);
   if (state.permutationAlbum.length >= getPermutationGoal()) {
-    completePermutationAlbum();
+    els.cameraButton.disabled = true;
+    unlockSubmitButton();
   }
 }
 
@@ -4817,6 +5052,7 @@ function completePermutationAlbum() {
   resetMistakeCounter();
   state.phase = "celebrating";
   els.cameraButton.disabled = true;
+  lockSubmitButton();
   els.workPanel.classList.add("is-celebrating", "smileys-wiggling");
   celebrateCycle(CYCLE_CELEBRATION_MS);
   scheduleCycleTimer(() => {
@@ -4854,9 +5090,7 @@ function getPermutationPageCount() {
 
 function factorial(count) {
   let total = 1;
-  for (let value = 2; value <= count; value += 1) {
-    total *= value;
-  }
+  for (let value = 2; value <= count; value += 1) total *= value;
   return total;
 }
 
@@ -5953,25 +6187,19 @@ function shouldReuseSmileysForNextCycle(mission) {
 }
 
 function finishReusableCycle(mission) {
-  state.phase = "celebrating";
+  const previousRects = collectSmileyRects();
+  state.phase = "transitioning";
   lockSubmitButton();
-  els.workPanel.classList.add("is-celebrating", "smileys-wiggling");
-  celebrateCycle(CYCLE_CELEBRATION_MS);
+  els.workPanel.classList.add("is-celebrating", "criteria-fading-out");
   scheduleCycleTimer(() => {
-    els.workPanel.classList.remove("smileys-wiggling");
-    els.workPanel.classList.add("smileys-exiting", "criteria-fading-out");
-  }, CYCLE_CELEBRATION_MS);
-  scheduleCycleTimer(() => {
-    startNextCycleWithSameSmileys(mission);
+    startNextCycleWithSameSmileys(mission, previousRects);
     els.workPanel.classList.remove("is-celebrating");
-    els.workPanel.classList.remove("smileys-exiting");
     els.workPanel.classList.remove("criteria-fading-out");
-    els.workPanel.classList.add("cycle-fading-in", "criteria-fading-in");
-  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS);
+    els.workPanel.classList.add("criteria-fading-in");
+  }, 760);
   scheduleCycleTimer(() => {
-    els.workPanel.classList.remove("cycle-fading-in");
     els.workPanel.classList.remove("criteria-fading-in");
-  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS + CYCLE_ENTER_MS);
+  }, 1520);
 }
 
 function shouldAnimateRoomSmileys(mission) {

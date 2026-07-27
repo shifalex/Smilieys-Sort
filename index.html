@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=create-equal-height-v99-20260724">
+    <link rel="stylesheet" href="styles.css?v=album-ok-v105-20260727">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -153,6 +153,12 @@
               </span>
               <span class="mission-word" aria-hidden="true">Album</span>
             </button>
+            <button class="mission-choice pair-combination-mission" type="button" id="pairCombinationMissionButton" aria-label="Pair combinations">
+              <span class="pair-combination-sketch" aria-hidden="true">
+                <span></span><strong>×</strong><span></span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Pairs</span>
+            </button>
             <button class="mission-choice similarity-mission" type="button" id="similarityMissionButton" aria-label="Who is more similar?">
               <span class="similarity-sketch" aria-hidden="true">
                 <span class="similarity-sketch-reference"></span>
@@ -287,6 +293,23 @@
             </button>
           </div>
           <div class="album-pages" id="albumPages" aria-label="Permutation photos"></div>
+        </div>
+
+        <div class="pair-combination-panel hidden" id="pairCombinationPanel">
+          <div class="permutation-head">
+            <h2 class="panel-title">Pairs</h2>
+          </div>
+          <div class="permutation-source-row" aria-label="Smiley groups">
+            <div class="permutation-source-zone" id="pairSourceA" data-zone="pair-source-a" aria-label="First smiley group"></div>
+            <div class="permutation-source-zone" id="pairSourceB" data-zone="pair-source-b" aria-label="Second smiley group"></div>
+          </div>
+          <div class="permutation-capture-row">
+            <div class="permutation-order-zone pair-capture-zone" id="pairCaptureZone" data-zone="pair-capture" aria-label="Place one smiley from each group here"></div>
+            <button class="camera-button" type="button" id="pairCameraButton" aria-label="Take photo of this pair" disabled>
+              <span aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="album-pages" id="pairAlbumPages" aria-label="Pair combination photos"></div>
         </div>
 
         <div class="creator-panel hidden" id="creatorPanel">
@@ -463,7 +486,7 @@
       </button>
     </template>
 
-    <script type="module" src="app.js?v=create-equal-height-v99-20260724"></script>
+    <script type="module" src="app.js?v=album-ok-v105-20260727"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
