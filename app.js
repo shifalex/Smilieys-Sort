@@ -1868,8 +1868,8 @@ function getSmileysInRenderOrder() {
     if (firstZoneRank !== secondZoneRank) {
       return firstZoneRank - secondZoneRank;
     }
-    const firstOrder = first.zone === "tray" ? first.originalOrder : first.placementOrder;
-    const secondOrder = second.zone === "tray" ? second.originalOrder : second.placementOrder;
+    const firstOrder = first.placementOrder;
+    const secondOrder = second.placementOrder;
     return firstOrder - secondOrder;
   });
 }
@@ -2209,11 +2209,40 @@ function moveSmileyToZone(smiley, zone, x = null, y = null) {
     moveSmileyToOrder(smiley, x, y);
     return;
   }
-  if (smiley.zone === zone && zone !== "order") return;
+  const originalZone = smiley.zone;
+  const zoneElement = getZoneElement(zone);
+  const insertIndex = getZoneInsertIndex(zoneElement, x, y);
+  const zoneSmileys = state.smileys
+    .filter(item => item.id !== smiley.id && item.zone === zone)
+    .sort((first, second) => first.placementOrder - second.placementOrder);
   smiley.zone = zone;
-  smiley.placementOrder = zone === "tray" ? smiley.originalOrder : state.nextPlacementOrder;
-  normalizeOrderedSmileys();
-  state.nextPlacementOrder += 1;
+  zoneSmileys.splice(insertIndex, 0, smiley);
+  zoneSmileys.forEach((item, index) => {
+    item.placementOrder = index;
+  });
+  if (originalZone !== zone) {
+    state.smileys
+      .filter(item => item.zone === originalZone)
+      .sort((first, second) => first.placementOrder - second.placementOrder)
+      .forEach((item, index) => {
+        item.placementOrder = index;
+      });
+  }
+  state.nextPlacementOrder = Math.max(state.nextPlacementOrder, zoneSmileys.length);
+}
+
+function getZoneInsertIndex(zoneElement, x, y) {
+  if (!zoneElement || x === null || y === null) return zoneElement?.children.length || 0;
+  const nodes = [...zoneElement.querySelectorAll(":scope > .smiley")];
+  for (let index = 0; index < nodes.length; index += 1) {
+    const rect = nodes[index].getBoundingClientRect();
+    const rowCenter = rect.top + (rect.height / 2);
+    const itemCenter = rect.left + (rect.width / 2);
+    if (y < rect.top || (Math.abs(y - rowCenter) <= rect.height / 2 && x < itemCenter)) {
+      return index;
+    }
+  }
+  return nodes.length;
 }
 
 function moveSmileyToOrder(smiley, x, y) {
@@ -2559,7 +2588,7 @@ function getDropTarget(x, y) {
   if (state.phase === "selection") {
     return element.closest(".venn-zone, .selection-target-zone");
   }
-  return element.closest(".drop-zone");
+  return element.closest(".drop-zone, .smiley-tray");
 }
 
 function validateCurrentPhase() {
