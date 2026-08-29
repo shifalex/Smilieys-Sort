@@ -31,6 +31,7 @@ const vennLightingStates = new WeakMap();
 const VENN_CIRCLE_BOX_LIGHT_MODE = "all";
 const ROOM_EXIT_MS = 4000;
 const ROOM_REORDER_MS = 760;
+const CATEGORY_ATTENTION_MS = 900;
 // Flip to true to restore the paired-shape same/different icons everywhere.
 const USE_VISUAL_RELATION_ICONS = false;
 const MUSIC_NOTES = [261.63, 329.63, 392, 329.63, 293.66, 349.23, 440, 349.23];
@@ -6561,7 +6562,8 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
   const fadeCategories = options.fadeCategories !== false;
   const returnHomeDuration = animateSmileys ? 720 : 0;
   const returnHomeDelay = animateSmileys ? CYCLE_CELEBRATION_MS : 0;
-  const exitStartDelay = returnHomeDelay + returnHomeDuration;
+  const categoryAttentionDelay = returnHomeDelay + returnHomeDuration;
+  const exitStartDelay = categoryAttentionDelay + (fadeCategories ? CATEGORY_ATTENTION_MS : 0);
   const reorderStartDelay = exitStartDelay + (animateSmileys ? ROOM_EXIT_MS : CYCLE_CELEBRATION_MS);
   const nextRoundDelay = reorderStartDelay + (animateSmileys ? ROOM_REORDER_MS : 0);
 
@@ -6579,7 +6581,14 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
       returnRoomSmileysToTray();
     }, returnHomeDelay);
 
+    if (fadeCategories) {
+      scheduleCycleTimer(() => {
+        els.workPanel.classList.add("criteria-wiggling");
+      }, categoryAttentionDelay);
+    }
+
     scheduleCycleTimer(() => {
+      els.workPanel.classList.remove("criteria-wiggling");
       markDepartingRoomSmileys();
       els.workPanel.classList.add("smileys-exiting");
       if (fadeCategories) {
@@ -6600,6 +6609,7 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
     els.workPanel.classList.remove("smileys-wiggling");
     els.workPanel.classList.remove("smileys-exiting");
     els.workPanel.classList.remove("smileys-returning-home");
+    els.workPanel.classList.remove("criteria-wiggling");
     els.workPanel.classList.remove("criteria-fading-out");
     if (animateSmileys) {
       els.workPanel.classList.add("cycle-fading-in");
@@ -6844,6 +6854,7 @@ function clearCycleTimers() {
     els.workPanel.classList.remove("smileys-exiting");
     els.workPanel.classList.remove("smileys-returning-home");
     els.workPanel.classList.remove("smileys-wiggling");
+    els.workPanel.classList.remove("criteria-wiggling");
     els.workPanel.classList.remove("criteria-fading-out");
     els.workPanel.classList.remove("criteria-fading-in");
     els.workPanel.classList.remove("is-celebrating");
