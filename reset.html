@@ -19,7 +19,7 @@
         "caches" in window
           ? caches.keys().then(keys => Promise.all(keys.map(key => caches.delete(key))))
           : Promise.resolve()
-      ]).finally(() => window.location.replace("/?ipad-reset=1"));
+      ]).finally(() => window.location.replace("./?ipad-reset=1"));
     </script>
   </body>
 </html>
