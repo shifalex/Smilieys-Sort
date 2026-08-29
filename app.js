@@ -3070,6 +3070,13 @@ function returnSmileysToTraySlowly(ids = state.smileys.map(smiley => smiley.id))
 }
 
 function animateSmileysFrom(previousRects, excludedId = null, speed = "normal") {
+  const transitionBySpeed = {
+    fast: "transform 180ms ease-out",
+    pair: "transform 680ms cubic-bezier(0.22, 1, 0.36, 1)",
+    cycle: "transform 4680ms cubic-bezier(0.45, 0, 0.55, 1)",
+    counting: "transform 2280ms cubic-bezier(0.45, 0, 0.55, 1)",
+    normal: "transform 4680ms cubic-bezier(0.45, 0, 0.55, 1)"
+  };
   previousRects.forEach((oldRect, id) => {
     if (id === excludedId) return;
     const node = document.querySelector(`[data-id="${id}"]`);
@@ -3082,7 +3089,9 @@ function animateSmileysFrom(previousRects, excludedId = null, speed = "normal") 
     node.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
     node.getBoundingClientRect();
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-      node.style.transition = "";
+      // Keep the duration inline: iPad Safari can otherwise briefly fall back
+      // to the base .smiley 240ms transition before applying the speed class.
+      node.style.transition = transitionBySpeed[speed] || transitionBySpeed.normal;
       node.classList.add(
         speed === "fast"
           ? "returning-fast"
