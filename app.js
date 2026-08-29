@@ -6665,9 +6665,11 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
   const exitStartDelay = returnHomeDelay + returnHomeDuration +
     (fadeCategories ? SMILEY_RETURN_SETTLE_MS : 0);
   const reorderStartDelay = exitStartDelay + (animateSmileys ? ROOM_EXIT_MS : CYCLE_CELEBRATION_MS);
-  const categoryWiggleStartDelay = reorderStartDelay + (animateSmileys ? ROOM_REORDER_MS : 0);
-  const fadeOutStartDelay = categoryWiggleStartDelay + (fadeCategories ? CATEGORY_WIGGLE_MS : 0);
-  const nextRoundDelay = fadeOutStartDelay + (fadeCategories ? SUCCESS_CATEGORY_FADE_OUT_MS : 0);
+  const nextRoundDelay = reorderStartDelay + (animateSmileys ? ROOM_REORDER_MS : 0);
+  const categoryWiggleStartDelay = nextRoundDelay + (animateSmileys ? CYCLE_ENTER_MS : 0);
+  const fadeOutStartDelay = categoryWiggleStartDelay + CATEGORY_WIGGLE_MS;
+  const fadeInStartDelay = fadeOutStartDelay + SUCCESS_CATEGORY_FADE_OUT_MS;
+  const finalWiggleStartDelay = fadeInStartDelay + SUCCESS_CATEGORY_FADE_IN_MS;
 
   state.phase = "celebrating";
   els.workPanel.classList.add("is-celebrating");
@@ -6694,17 +6696,6 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
 
   }
 
-  if (fadeCategories) {
-    scheduleCycleTimer(() => {
-      els.workPanel.classList.add("criteria-wiggling");
-    }, categoryWiggleStartDelay);
-
-    scheduleCycleTimer(() => {
-      els.workPanel.classList.remove("criteria-wiggling");
-      els.workPanel.classList.add("criteria-fading-out");
-    }, fadeOutStartDelay);
-  }
-
   scheduleCycleTimer(() => {
     startNextRound();
     state.departingSmileyIds = [];
@@ -6714,9 +6705,6 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
     els.workPanel.classList.remove("smileys-returning-home");
     if (animateSmileys) {
       els.workPanel.classList.add("cycle-fading-in");
-    } else if (fadeCategories) {
-      els.workPanel.classList.remove("criteria-fading-out");
-      els.workPanel.classList.add("criteria-fading-in");
     }
   }, nextRoundDelay);
 
@@ -6724,30 +6712,32 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
     scheduleCycleTimer(() => {
       els.workPanel.classList.remove("cycle-fading-in");
       state.enteringSmileyIds = [];
-      if (fadeCategories) {
-        els.workPanel.classList.remove("criteria-fading-out");
-        els.workPanel.classList.add("criteria-fading-in");
-      }
-    }, nextRoundDelay + CYCLE_ENTER_MS);
+    }, categoryWiggleStartDelay);
+  }
 
-    if (fadeCategories) {
-      scheduleCycleTimer(() => {
-        els.workPanel.classList.remove("criteria-fading-in");
-        els.workPanel.classList.add("criteria-wiggling");
-      }, nextRoundDelay + CYCLE_ENTER_MS + SUCCESS_CATEGORY_FADE_IN_MS);
+  if (fadeCategories) {
+    scheduleCycleTimer(() => {
+      els.workPanel.classList.add("criteria-wiggling");
+    }, categoryWiggleStartDelay);
 
-      scheduleCycleTimer(() => {
-        els.workPanel.classList.remove("criteria-wiggling");
-      }, nextRoundDelay + CYCLE_ENTER_MS + SUCCESS_CATEGORY_FADE_IN_MS + CATEGORY_WIGGLE_MS);
-    }
-  } else if (fadeCategories) {
+    scheduleCycleTimer(() => {
+      els.workPanel.classList.remove("criteria-wiggling");
+      els.workPanel.classList.add("criteria-fading-out");
+    }, fadeOutStartDelay);
+
+    scheduleCycleTimer(() => {
+      els.workPanel.classList.remove("criteria-fading-out");
+      els.workPanel.classList.add("criteria-fading-in");
+    }, fadeInStartDelay);
+
     scheduleCycleTimer(() => {
       els.workPanel.classList.remove("criteria-fading-in");
       els.workPanel.classList.add("criteria-wiggling");
-    }, nextRoundDelay + SUCCESS_CATEGORY_FADE_IN_MS);
+    }, finalWiggleStartDelay);
+
     scheduleCycleTimer(() => {
       els.workPanel.classList.remove("criteria-wiggling");
-    }, nextRoundDelay + SUCCESS_CATEGORY_FADE_IN_MS + CATEGORY_WIGGLE_MS);
+    }, finalWiggleStartDelay + CATEGORY_WIGGLE_MS);
   }
 }
 
