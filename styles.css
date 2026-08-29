@@ -5566,7 +5566,7 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
 }
 
 .smiley.returning {
-  transition: transform 4680ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 4680ms cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 .smiley.returning-fast {
@@ -5578,11 +5578,11 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
 }
 
 .smiley.returning-cycle {
-  transition: transform 4680ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 4680ms cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 .smiley.returning-counting {
-  transition: transform 2280ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 2280ms cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 .smiley.is-traveling {
