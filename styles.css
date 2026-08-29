@@ -5683,10 +5683,38 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
   transform-origin: center;
 }
 
+.category-transition-ghost {
+  z-index: 60;
+  margin: 0;
+  pointer-events: none;
+  transform-origin: center;
+}
+
+.category-transition-ghost.is-wiggling {
+  animation: categoryAttentionWiggle 400ms ease-in-out 2;
+}
+
+.category-transition-ghost.is-fading {
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
 @keyframes categoryAttentionWiggle {
   0%, 100% { transform: rotate(0deg) scale(1); }
   25% { transform: rotate(-7deg) scale(1.06); }
   75% { transform: rotate(7deg) scale(1.06); }
+}
+
+.work-panel.criteria-held-hidden .column-head .feature-icon,
+.work-panel.criteria-held-hidden .criterion-icon,
+.work-panel.criteria-held-hidden .carroll-axis .feature-icon,
+.work-panel.criteria-held-hidden .venn-circle-head .feature-icon,
+.work-panel.criteria-held-hidden .counting-circle-head .feature-icon,
+.work-panel.criteria-held-hidden .nested-category-head > *,
+.work-panel.criteria-held-hidden .selection-source .feature-icon,
+.work-panel.criteria-held-hidden .implicit-rule-head > *,
+.work-panel.criteria-held-hidden .implicit-circle .feature-icon {
+  opacity: 0;
 }
 
 .work-panel.criteria-fading-out .column-head .feature-icon,

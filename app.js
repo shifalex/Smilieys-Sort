@@ -6670,6 +6670,7 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
   const fadeOutStartDelay = categoryWiggleStartDelay + CATEGORY_WIGGLE_MS;
   const fadeInStartDelay = fadeOutStartDelay + SUCCESS_CATEGORY_FADE_OUT_MS;
   const finalWiggleStartDelay = fadeInStartDelay + SUCCESS_CATEGORY_FADE_IN_MS;
+  let categoryGhosts = [];
 
   state.phase = "celebrating";
   els.workPanel.classList.add("is-celebrating");
@@ -6697,6 +6698,10 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
   }
 
   scheduleCycleTimer(() => {
+    if (fadeCategories) {
+      categoryGhosts = createCategoryTransitionGhosts();
+      els.workPanel.classList.add("criteria-held-hidden");
+    }
     startNextRound();
     state.departingSmileyIds = [];
     els.workPanel.classList.remove("is-celebrating");
@@ -6717,16 +6722,20 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
 
   if (fadeCategories) {
     scheduleCycleTimer(() => {
-      els.workPanel.classList.add("criteria-wiggling");
+      categoryGhosts.forEach(ghost => ghost.classList.add("is-wiggling"));
     }, categoryWiggleStartDelay);
 
     scheduleCycleTimer(() => {
-      els.workPanel.classList.remove("criteria-wiggling");
-      els.workPanel.classList.add("criteria-fading-out");
+      categoryGhosts.forEach(ghost => {
+        ghost.classList.remove("is-wiggling");
+        ghost.classList.add("is-fading");
+      });
     }, fadeOutStartDelay);
 
     scheduleCycleTimer(() => {
-      els.workPanel.classList.remove("criteria-fading-out");
+      categoryGhosts.forEach(ghost => ghost.remove());
+      categoryGhosts = [];
+      els.workPanel.classList.remove("criteria-held-hidden");
       els.workPanel.classList.add("criteria-fading-in");
     }, fadeInStartDelay);
 
@@ -6739,6 +6748,37 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
       els.workPanel.classList.remove("criteria-wiggling");
     }, finalWiggleStartDelay + CATEGORY_WIGGLE_MS);
   }
+}
+
+function createCategoryTransitionGhosts() {
+  const selector = [
+    ".column-head .feature-icon",
+    ".criterion-icon",
+    ".carroll-axis .feature-icon",
+    ".venn-circle-head .feature-icon",
+    ".counting-circle-head .feature-icon",
+    ".nested-category-head > *",
+    ".selection-source .feature-icon",
+    ".implicit-rule-head > *",
+    ".implicit-circle .feature-icon"
+  ].join(",");
+
+  return [...els.workPanel.querySelectorAll(selector)]
+    .filter(node => node.getClientRects().length > 0)
+    .map(node => {
+      const rect = node.getBoundingClientRect();
+      const ghost = node.cloneNode(true);
+      ghost.classList.add("category-transition-ghost");
+      Object.assign(ghost.style, {
+        position: "fixed",
+        left: `${rect.left}px`,
+        top: `${rect.top}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`
+      });
+      document.body.append(ghost);
+      return ghost;
+    });
 }
 
 function compactRemainingRoomSmileys() {
@@ -6980,10 +7020,12 @@ function clearCycleTimers() {
     els.workPanel.classList.remove("smileys-returning-home");
     els.workPanel.classList.remove("smileys-wiggling");
     els.workPanel.classList.remove("criteria-wiggling");
+    els.workPanel.classList.remove("criteria-held-hidden");
     els.workPanel.classList.remove("criteria-fading-out");
     els.workPanel.classList.remove("criteria-fading-in");
     els.workPanel.classList.remove("is-celebrating");
     els.celebration.classList.add("hidden");
+    document.querySelectorAll(".category-transition-ghost").forEach(node => node.remove());
   }
 }
 
