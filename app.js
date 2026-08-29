@@ -6732,7 +6732,7 @@ function compactRemainingRoomSmileys() {
   departingIds.forEach(id => {
     document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.remove();
   });
-  animateSmileysFrom(previousRects, null, "cycle");
+  animateSmileysFrom(previousRects, null, "pair");
 }
 
 function returnRoomSmileysToTray() {
@@ -6743,7 +6743,7 @@ function returnRoomSmileysToTray() {
     smiley.placementOrder = index;
   });
   renderSmileys();
-  animateSmileysFrom(previousRects, null, "pair");
+  animateSmileysFrom(previousRects, null, "cycle");
 }
 
 function shouldReuseSmileysForNextCycle(mission) {
