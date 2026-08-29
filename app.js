@@ -2923,10 +2923,8 @@ function registerMistake({ returnSmileys = false } = {}) {
 
   if (state.submitMistakeStreak === 1) {
     animateUnhappySmileys(state.smileys.map(smiley => smiley.id));
-    holdSubmitDuringMistakeFeedback();
   } else if (state.submitMistakeStreak === 2) {
     animateUnhappySmileys(getWrongSmileyIds());
-    holdSubmitDuringMistakeFeedback();
   }
 
   if (returnSmileys && state.submitMistakeStreak >= 3 && !state.returnAfterErrorPending) {
@@ -2936,16 +2934,6 @@ function registerMistake({ returnSmileys = false } = {}) {
       returnSmileysToTraySlowly(getWrongSmileyIds());
     }, 560);
   }
-}
-
-function holdSubmitDuringMistakeFeedback() {
-  const feedbackPhase = state.phase;
-  els.submitSortButton.disabled = true;
-  window.setTimeout(() => {
-    if (state.phase === feedbackPhase && !state.returnAfterErrorPending) {
-      unlockSubmitButton();
-    }
-  }, 2000);
 }
 
 function animateUnhappySmileys(ids) {
