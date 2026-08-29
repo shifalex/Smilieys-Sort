@@ -1,9 +1,9 @@
-const CACHE_NAME = "smileys-sorting-game-v171";
+const CACHE_NAME = "smileys-sorting-game-v214";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=hybrid-drop-position-v112-20260727",
-  "./app.js?v=hybrid-drop-position-v112-20260727",
+  "./styles.css?v=desktop-circle-fit-v154-20260814",
+  "./app.js?v=desktop-circle-fit-v154-20260814",
   "./manifest.webmanifest",
   "./icons/icon-180.png",
   "./icons/icon-192.png",
@@ -48,9 +48,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Code and styles must update as one coherent release. Prefer the network so
+  // an older cached module can never be mixed with a newer app entry point.
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request);
-    })
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });

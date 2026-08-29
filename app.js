@@ -11,7 +11,7 @@ import {
   makeAllSmileyCombinations,
   makePlayableSmileys,
   makeSmileys
-} from "./src/core/smileys.js";
+} from "./src/core/smileys.js?v=room-memory-v113-20260808";
 import {
   addBeardLengthCoins,
   BEARD_LEVELS,
@@ -21,14 +21,18 @@ import {
   makeStatisticsCoinSmileys,
 } from "./src/core/statistics.js";
 import { shuffle, triadKey } from "./src/core/utils.js";
-import { els, getAllDropContainers, getZoneElement } from "./src/app/elements.js?v=compare-tutorial-v89-20260724";
+import { els, getAllDropContainers, getZoneElement } from "./src/app/elements.js?v=room-memory-v113-20260808";
 import { setHeader, setProgress } from "./src/app/header.js";
-import { state } from "./src/app/state.js?v=compare-tutorial-v89-20260724";
+import { state } from "./src/app/state.js?v=room-memory-v113-20260808";
 
 const vennLightingStates = new WeakMap();
 // "all" lights every region inside the hovered circle.
 // Change to "separate" to light only A & ~B (or B & ~A).
 const VENN_CIRCLE_BOX_LIGHT_MODE = "all";
+const ROOM_EXIT_MS = 4000;
+const ROOM_REORDER_MS = 760;
+// Flip to true to restore the paired-shape same/different icons everywhere.
+const USE_VISUAL_RELATION_ICONS = false;
 const MUSIC_NOTES = [261.63, 329.63, 392, 329.63, 293.66, 349.23, 440, 349.23];
 let audioContext = null;
 let musicTimer = null;
@@ -42,6 +46,12 @@ let vennMotionLabDirection = 1;
 let comparisonTutorialSequence = 0;
 
 function init() {
+  document.documentElement.classList.toggle("visual-relation-icons", USE_VISUAL_RELATION_ICONS);
+  // Keep the app usable if an older service-worker cache supplied a partial state object.
+  state.rememberRoomState ??= true;
+  state.enteringSmileyIds ??= [];
+  state.departingSmileyIds ??= [];
+  state.rememberedRooms ??= {};
   for (let count = 2; count <= 10; count += 1) {
     const button = document.createElement("button");
     button.type = "button";
@@ -80,6 +90,7 @@ function init() {
     els.newSetButton.addEventListener("click", () => showSetup());
   }
   setupCopyrightDedication();
+  setupCountCheckDialog();
   els.submitSortButton.addEventListener("click", () => validateCurrentPhase());
   document.addEventListener("keydown", event => {
     if (event.key !== "Enter" || els.workPanel.classList.contains("hidden")) return;
@@ -132,6 +143,10 @@ function setupSettingsMenu() {
     }
   });
   els.numbersSetting.addEventListener("click", () => chooseMode(!state.useNumbers));
+  els.roomMemorySetting?.addEventListener("click", () => {
+    state.rememberRoomState = !state.rememberRoomState;
+    syncSettingsControls();
+  });
 
   document.addEventListener("click", closeSettings);
   document.addEventListener("keydown", event => {
@@ -394,8 +409,10 @@ function syncSettingsControls() {
     [els.popupSetting, state.intersectionPopupsEnabled],
     [els.soundSetting, state.soundEnabled],
     [els.musicSetting, state.musicEnabled],
-    [els.numbersSetting, state.useNumbers]
+    [els.numbersSetting, state.useNumbers],
+    [els.roomMemorySetting, state.rememberRoomState]
   ].forEach(([button, enabled]) => {
+    if (!button) return;
     button.setAttribute("aria-checked", String(enabled));
     button.classList.toggle("is-on", enabled);
   });
@@ -779,9 +796,12 @@ function chooseFeatureMission() {
 function chooseMode(useNumbers) {
   state.useNumbers = useNumbers;
   syncSettingsControls();
+  if (!els.workPanel.classList.contains("hidden")) resetCountChallenge();
 }
 
 function startSet(count, clearPendingTimers = true) {
+  const rememberedSmileys = clearPendingTimers ? getRememberedRoom("feature", count) : [];
+  const previousSmileys = !clearPendingTimers && state.mission === "feature" ? state.smileys : rememberedSmileys;
   if (clearPendingTimers) {
     clearCycleTimers();
   }
@@ -792,7 +812,9 @@ function startSet(count, clearPendingTimers = true) {
   state.phase = "sorting";
   state.featureIndex = 0;
   state.nextPlacementOrder = 1;
-  state.smileys = makeSmileys(count, featureCount);
+  state.smileys = rememberedSmileys.length
+    ? restoreRoomSmileys(rememberedSmileys)
+    : makeRoomAwareSmileys(previousSmileys, count, featureCount);
   state.activeFeatures = chooseFeatureCycle(state.smileys, featureCount);
   state.setCycle = 0;
   state.reuseGoal = getReuseGoal("feature");
@@ -814,6 +836,8 @@ function startSet(count, clearPendingTimers = true) {
 }
 
 function startOrderingMission(resetProgress = false, clearPendingTimers = true) {
+  const rememberedSmileys = clearPendingTimers ? getRememberedRoom("ordering", getOrderingSmileyCount()) : [];
+  const previousSmileys = !clearPendingTimers && state.mission === "ordering" ? state.smileys : rememberedSmileys;
   if (clearPendingTimers) {
     clearCycleTimers();
   }
@@ -827,7 +851,9 @@ function startOrderingMission(resetProgress = false, clearPendingTimers = true) 
   state.phase = "ordering";
   state.featureIndex = 0;
   state.nextPlacementOrder = 1;
-  state.smileys = makeSmileys(smileyCount, featureCountForSmileyCount(smileyCount));
+  state.smileys = rememberedSmileys.length
+    ? restoreRoomSmileys(rememberedSmileys)
+    : makeRoomAwareSmileys(previousSmileys, smileyCount, featureCountForSmileyCount(smileyCount));
   state.setCycle = 0;
   state.reuseGoal = getReuseGoal("ordering");
   state.activeFeatures = [];
@@ -938,6 +964,8 @@ function startAverageMission(clearPendingTimers = true) {
 }
 
 function startCarrollMission(clearPendingTimers = true, count = getDefaultSmileyCount()) {
+  const rememberedSmileys = clearPendingTimers ? getRememberedRoom("carroll", count) : [];
+  const previousSmileys = !clearPendingTimers && state.mission === "carroll" ? state.smileys : rememberedSmileys;
   if (clearPendingTimers) {
     clearCycleTimers();
   }
@@ -947,7 +975,9 @@ function startCarrollMission(clearPendingTimers = true, count = getDefaultSmiley
   state.phase = "carroll";
   state.featureIndex = 0;
   state.nextPlacementOrder = 1;
-  const setup = makeCarrollSet(state.requestedCount);
+  const setup = rememberedSmileys.length
+    ? { smileys: restoreRoomSmileys(rememberedSmileys), criteria: chooseCarrollCriteriaForSmileys(rememberedSmileys, []) }
+    : makeCarrollSet(state.requestedCount, previousSmileys);
   state.smileys = setup.smileys;
   state.setCycle = 0;
   state.reuseGoal = getReuseGoal("carroll");
@@ -1093,17 +1123,22 @@ function startPairCombinationMission(clearPendingTimers = true) {
   startPairCombinationPhase();
 }
 
-function startSelectionMission(clearPendingTimers = true) {
+function startSelectionMission(clearPendingTimers = true, count = getDefaultSmileyCount()) {
+  count = Math.min(7, count);
+  const rememberedSmileys = clearPendingTimers ? getRememberedRoom("selection", count) : [];
+  const previousSmileys = !clearPendingTimers && state.mission === "selection" ? state.smileys : rememberedSmileys;
   if (clearPendingTimers) {
     clearCycleTimers();
   }
   els.workPanel.classList.remove("cycle-fading-out");
   state.mission = "selection";
-  state.requestedCount = getDefaultSmileyCount();
+  state.requestedCount = count;
   state.phase = "selection";
   state.featureIndex = 0;
   state.nextPlacementOrder = 1;
-  const setup = makeVennSetForCount(getSelectionCriterionCount(), state.requestedCount);
+  const setup = rememberedSmileys.length
+    ? { smileys: restoreRoomSmileys(rememberedSmileys), criteria: shuffle([...features]).slice(0, getSelectionCriterionCount()) }
+    : makeVennSetForCount(getSelectionCriterionCount(), state.requestedCount, previousSmileys);
   state.activeVennCriteria = setup.criteria;
   state.smileys = setup.smileys.map(smiley => {
     const zone = getVennZoneForSmiley(smiley, setup.criteria);
@@ -1162,6 +1197,9 @@ function startCreatorMission(clearPendingTimers = true) {
 }
 
 function startVennMission(clearPendingTimers = true, count = getDefaultSmileyCount()) {
+  count = Math.min(7, count);
+  const rememberedSmileys = clearPendingTimers ? getRememberedRoom("venn", count) : [];
+  const previousSmileys = !clearPendingTimers && state.mission === "venn" ? state.smileys : rememberedSmileys;
   if (clearPendingTimers) {
     clearCycleTimers();
   }
@@ -1171,7 +1209,9 @@ function startVennMission(clearPendingTimers = true, count = getDefaultSmileyCou
   state.phase = "venn";
   state.featureIndex = 0;
   state.nextPlacementOrder = 1;
-  const setup = makeVennSet(state.requestedCount);
+  const setup = rememberedSmileys.length
+    ? { smileys: restoreRoomSmileys(rememberedSmileys), criteria: shuffle([...features]).slice(0, getVennCriterionCount()) }
+    : makeVennSet(state.requestedCount, previousSmileys);
   state.smileys = setup.smileys;
   state.setCycle = 0;
   state.reuseGoal = getReuseGoal("venn");
@@ -1191,16 +1231,21 @@ function startVennMission(clearPendingTimers = true, count = getDefaultSmileyCou
 }
 
 function startNestedMission(clearPendingTimers = true, count = getDefaultSmileyCount()) {
+  count = Math.min(7, Math.max(5, count));
+  const rememberedSmileys = clearPendingTimers ? getRememberedRoom("nested", count) : [];
+  const previousSmileys = !clearPendingTimers && state.mission === "nested" ? state.smileys : rememberedSmileys;
   if (clearPendingTimers) {
     clearCycleTimers();
   }
   els.workPanel.classList.remove("cycle-fading-out");
   state.mission = "nested";
-  state.requestedCount = Math.max(5, count);
+  state.requestedCount = count;
   state.phase = "nested";
   state.featureIndex = 0;
   state.nextPlacementOrder = 1;
-  const setup = makeNestedSet(state.requestedCount);
+  const setup = rememberedSmileys.length
+    ? { smileys: restoreRoomSmileys(rememberedSmileys), criteria: chooseNestedCriteriaForSmileys(rememberedSmileys, []) }
+    : makeNestedSet(state.requestedCount, previousSmileys);
   state.smileys = setup.smileys;
   state.setCycle = 0;
   state.reuseGoal = getReuseGoal("nested");
@@ -1256,6 +1301,9 @@ function startCountingMission(clearPendingTimers = true) {
 }
 
 function startImplicitMission(clearPendingTimers = true, count = getDefaultSmileyCount()) {
+  count = Math.min(7, count);
+  const rememberedSmileys = clearPendingTimers ? getRememberedRoom("implicit", count) : [];
+  const previousSmileys = !clearPendingTimers && state.mission === "implicit" ? state.smileys : rememberedSmileys;
   if (clearPendingTimers) {
     clearCycleTimers();
   }
@@ -1265,7 +1313,9 @@ function startImplicitMission(clearPendingTimers = true, count = getDefaultSmile
   state.phase = "implicit";
   state.featureIndex = 0;
   state.nextPlacementOrder = 1;
-  const setup = makeImplicitSet(state.requestedCount);
+  const setup = rememberedSmileys.length
+    ? { smileys: restoreRoomSmileys(rememberedSmileys), criteria: chooseImplicitCriteriaForSmileys(rememberedSmileys) }
+    : makeImplicitSet(state.requestedCount, previousSmileys);
   state.smileys = setup.smileys;
   state.setCycle = 0;
   state.reuseGoal = getReuseGoal("implicit");
@@ -1287,7 +1337,20 @@ function startImplicitMission(clearPendingTimers = true, count = getDefaultSmile
 }
 
 function showSetup() {
+  rememberCurrentRoom();
   clearCycleTimers();
+  closeCountCheckDialog();
+  clearInlineCountPrompts();
+  els.celebration.classList.add("hidden");
+  els.workPanel.classList.remove(
+    "is-celebrating",
+    "smileys-wiggling",
+    "smileys-exiting",
+    "smileys-returning-home",
+    "criteria-fading-out",
+    "criteria-fading-in",
+    "cycle-fading-in"
+  );
   els.similarityPanel.classList.add("hidden");
   els.nestedPanel.classList.add("hidden");
   state.smileys = [];
@@ -1436,10 +1499,95 @@ function getReuseGoal(mission = state.mission) {
   return mission === "feature" ? 1 : 3;
 }
 
-function makeCarrollSet(count = getDefaultSmileyCount()) {
+function makeRoomAwareSmileys(previousSmileys, count, featureCount, validator = () => true) {
+  const previousIds = new Set(previousSmileys.map(smiley => smiley.id));
+  const smileys = state.rememberRoomState && previousSmileys.length
+    ? evolveSmileys(previousSmileys, count, featureCount, validator)
+    : makeSmileys(count, featureCount);
+  state.enteringSmileyIds = smileys.filter(smiley => !previousIds.has(smiley.id)).map(smiley => smiley.id);
+  return smileys;
+}
+
+function rememberCurrentRoom() {
+  if (!state.rememberRoomState || !state.mission || !state.smileys.length) return;
+  state.rememberedRooms[state.mission] = restoreRoomSmileys(state.smileys);
+}
+
+function getRememberedRoom(mission, count) {
+  if (!state.rememberRoomState) return [];
+  const room = state.rememberedRooms[mission] || [];
+  return room.length === count ? room : [];
+}
+
+function restoreRoomSmileys(smileys) {
+  return [...smileys]
+    .sort((first, second) => (first.originalOrder ?? 0) - (second.originalOrder ?? 0))
+    .map((smiley, index) => ({
+      ...smiley,
+      zone: "tray",
+      originalOrder: index,
+      placementOrder: index
+    }));
+}
+
+function evolveSmileys(previousSmileys, count, featureCount, validator = () => true) {
+  if (!previousSmileys?.length) return makeSmileys(count, featureCount);
+  const orderedPrevious = [...previousSmileys].sort((first, second) =>
+    (first.originalOrder ?? first.placementOrder ?? 0) - (second.originalOrder ?? second.placementOrder ?? 0)
+  );
+  const plannedDepartures = new Set(state.departingSmileyIds);
+  const plannedKept = orderedPrevious.filter(smiley => !plannedDepartures.has(smiley.id));
+  const plannedAdditionCount = count - plannedKept.length;
+  const canUsePlannedDepartures = plannedDepartures.size >= 1
+    && plannedDepartures.size <= 4
+    && plannedAdditionCount >= 1
+    && plannedAdditionCount <= 4;
+  const minimumKept = Math.max(0, previousSmileys.length - 4, count - 4);
+  const maximumKept = Math.min(previousSmileys.length - 1, count - 1);
+  if (minimumKept > maximumKept) return makeSmileys(count, featureCount);
+
+  for (let attempt = 0; attempt < 1200; attempt += 1) {
+    const keptCount = canUsePlannedDepartures
+      ? plannedKept.length
+      : minimumKept + Math.floor(Math.random() * (maximumKept - minimumKept + 1));
+    const keptIds = canUsePlannedDepartures
+      ? new Set(plannedKept.map(smiley => smiley.id))
+      : new Set(shuffle([...orderedPrevious]).slice(0, keptCount).map(smiley => smiley.id));
+    const kept = orderedPrevious.filter(smiley => keptIds.has(smiley.id));
+    const used = new Set(kept.map(smileyCombinationKey));
+    const additions = shuffle(makeAllSmileyCombinations())
+      .filter(smiley => !used.has(smileyCombinationKey(smiley)))
+      .slice(0, count - keptCount)
+      .map((smiley, index) => ({
+        ...smiley,
+        id: `smiley-evolved-${Date.now()}-${attempt}-${index}-${Math.random().toString(36).slice(2)}`
+      }));
+    // Existing characters keep their relative places; newcomers join at the end.
+    const evolved = [...kept, ...additions].map((smiley, index) => ({
+      ...smiley,
+      zone: "tray",
+      originalOrder: index,
+      placementOrder: index
+    }));
+    const uniqueTriads = new Set(features.map(feature => triadForFeature(evolved, feature))).size;
+    if (uniqueTriads >= featureCount && validator(evolved)) return evolved;
+  }
+  return makeSmileys(count, featureCount);
+}
+
+function smileyCombinationKey(smiley) {
+  return [smiley.shape, smiley.color, smiley.expression, smiley.hat, smiley.ears].join("|");
+}
+
+function makeCarrollSet(count = getDefaultSmileyCount(), previousSmileys = []) {
   for (let attempt = 0; attempt < 600; attempt += 1) {
     const criteria = shuffle([...features]).slice(0, 2);
-    const smileys = makeSmileys(count, featureCountForSmileyCount(count));
+    const smileys = makeRoomAwareSmileys(
+      previousSmileys,
+      count,
+      featureCountForSmileyCount(count),
+      candidate => hasAllCarrollQuadrants(candidate, criteria)
+    );
     if (hasAllCarrollQuadrants(smileys, criteria)) {
       return { smileys, criteria };
     }
@@ -1456,12 +1604,23 @@ function hasAllCarrollQuadrants(smileys, criteria) {
   return zones.size === 4;
 }
 
-function makeVennSet(count = getDefaultSmileyCount()) {
-  return makeVennSetForCount(getVennCriterionCount(), count);
+function makeVennSet(count = getDefaultSmileyCount(), previousSmileys = []) {
+  return makeVennSetForCount(getVennCriterionCount(), count, previousSmileys);
 }
 
-function makeNestedSet(count = getDefaultSmileyCount()) {
+function makeNestedSet(count = getDefaultSmileyCount(), previousSmileys = []) {
   const criteria = shuffle(getFeaturePairs())[0];
+  if (state.rememberRoomState && previousSmileys.length) {
+    return {
+      smileys: makeRoomAwareSmileys(
+        previousSmileys,
+        count,
+        featureCountForSmileyCount(count),
+        candidate => new Set(candidate.map(smiley => getNestedZoneForSmiley(smiley, criteria))).size === 3
+      ),
+      criteria
+    };
+  }
   const allSmileys = shuffle(makeAllSmileyCombinations());
   const zoneOrder = ["nested-inner", "nested-outer", "nested-outside"];
   const selected = zoneOrder.map(zone =>
@@ -1479,8 +1638,14 @@ function makeNestedSet(count = getDefaultSmileyCount()) {
   };
 }
 
-function makeVennSetForCount(criterionCount, count = getDefaultSmileyCount()) {
+function makeVennSetForCount(criterionCount, count = getDefaultSmileyCount(), previousSmileys = []) {
   const criteria = shuffle([...features]).slice(0, criterionCount);
+  if (state.rememberRoomState && previousSmileys.length) {
+    return {
+      smileys: makeRoomAwareSmileys(previousSmileys, count, featureCountForSmileyCount(count)),
+      criteria
+    };
+  }
   const selected = shuffle(makeAllSmileyCombinations()).slice(0, count);
   return {
     smileys: makePlayableSmileys(selected),
@@ -1752,10 +1917,15 @@ function makeBaseCreatorSmiley() {
   };
 }
 
-function makeImplicitSet(count = getDefaultSmileyCount()) {
+function makeImplicitSet(count = getDefaultSmileyCount(), previousSmileys = []) {
   for (let attempt = 0; attempt < 600; attempt += 1) {
     const criteria = shuffle([...features]).slice(0, 2);
-    const smileys = makeSmileys(count, featureCountForSmileyCount(count));
+    const smileys = makeRoomAwareSmileys(
+      previousSmileys,
+      count,
+      featureCountForSmileyCount(count),
+      candidate => hasAllImplicitZones(candidate, criteria)
+    );
     if (hasAllImplicitZones(smileys, criteria)) {
       return { smileys, criteria };
     }
@@ -1900,6 +2070,7 @@ function createSmileyNode(smiley) {
   node.classList.toggle("has-hat", smiley.hat);
   node.classList.toggle("has-ears", smiley.ears);
   node.classList.toggle("counting-dull", state.phase === "counting");
+  node.classList.toggle("is-cycle-entering", state.enteringSmileyIds?.includes(smiley.id) === true);
   if (Number.isInteger(smiley.beardLevel)) {
     node.classList.add("has-beard", `beard-${smiley.beardLevel}`);
     const beard = document.createElement("span");
@@ -2619,10 +2790,23 @@ function getDropTarget(x, y) {
   return element.closest(".drop-zone, .smiley-tray");
 }
 
-function validateCurrentPhase() {
+function validateCurrentPhase(skipCountOffer = false) {
   if (els.submitSortButton.disabled) return;
   if (isCelebrating()) return;
-  if (state.countChallenge) {
+  const validateOrganizationFirst = shouldValidateCompletedOrganizationFirst();
+  if (!validateOrganizationFirst && state.countChallenge && !state.countChallenge.onCorrect && markMissingCountInputs()) {
+    return;
+  }
+  if (!validateOrganizationFirst
+    && state.countChallenge
+    && !state.countChallenge.onCorrect
+    && !state.countChallenge.checked
+    && !state.countChallenge.skipped
+    && !skipCountOffer) {
+    openCountCheckDialog();
+    return;
+  }
+  if (!validateOrganizationFirst && state.countChallenge?.onCorrect) {
     checkCounts();
     return;
   }
@@ -2687,6 +2871,21 @@ function validateCurrentPhase() {
     return;
   }
   validateSort();
+}
+
+function shouldValidateCompletedOrganizationFirst() {
+  if (!state.countChallenge || state.countChallenge.onCorrect) return false;
+  if (state.phase === "ordering") {
+    return state.smileys.length > 0 && state.smileys.every(smiley => smiley.zone === "order");
+  }
+  if (["sorting", "carroll", "venn", "nested"].includes(state.phase)) {
+    return state.smileys.length > 0 && state.smileys.every(smiley => smiley.zone !== "tray");
+  }
+  if (state.phase === "implicit") {
+    return areImplicitGuessesCorrect()
+      || (state.smileys.length > 0 && state.smileys.every(smiley => smiley.zone !== "tray"));
+  }
+  return false;
 }
 
 function isCelebrating() {
@@ -2922,22 +3121,36 @@ function collectSmileyRects() {
 
 function checkCounts() {
   if (!state.countChallenge) return;
+  if (isStandaloneNumberMission()) {
+    state.countChallenge.items = state.mission === "feature"
+      ? buildFeatureCountItems()
+      : buildMissionCountItems();
+  }
   const inputs = [...document.querySelectorAll(".count-question-input")]
     .sort((first, second) => Number(first.dataset.countIndex) - Number(second.dataset.countIndex));
-  const emptyInput = inputs.find(input => input.value.trim() === "");
-  if (emptyInput) {
-    emptyInput.focus();
+  if (markMissingCountInputs(inputs)) {
     return;
   }
+  inputs.forEach(input => {
+    input.classList.remove("is-missing");
+    input.setAttribute("aria-invalid", "false");
+  });
 
   const isCorrect = state.countChallenge.items.every((item, index) =>
     Number.parseInt(inputs[index].value, 10) === item.expected
   );
   if (isCorrect) {
     const onCorrect = state.countChallenge.onCorrect;
-    state.countChallenge = null;
-    clearInlineCountPrompts();
-    onCorrect();
+    if (onCorrect) {
+      state.countChallenge = null;
+      clearInlineCountPrompts();
+      onCorrect();
+    } else if (advanceMissionFromNumbers()) {
+      return;
+    } else {
+      state.countChallenge.checked = true;
+      validateCurrentPhase(true);
+    }
     return;
   }
 
@@ -2956,14 +3169,86 @@ function advanceQuestionFromCount() {
 }
 
 function startCountChallenge(items, onCorrect) {
+  const wasChecked = state.countChallenge?.checked === true;
+  const wasSkipped = state.countChallenge?.skipped === true;
+  const savedValues = [...document.querySelectorAll(".count-question-input")]
+    .reduce((values, input) => ({ ...values, [input.dataset.countIndex]: input.value }), {});
   state.countChallenge = { items, onCorrect };
   renderInlineCountPrompts(items);
+  document.querySelectorAll(".count-question-input").forEach(input => {
+    input.value = savedValues[input.dataset.countIndex] || "";
+  });
   els.submitSortButton.textContent = "OK";
   unlockSubmitButton();
-  const firstInput = document.querySelector(".count-question-input");
-  if (firstInput) {
-    firstInput.focus();
+  if (onCorrect && (wasChecked || wasSkipped)) {
+    state.countChallenge = null;
+    clearInlineCountPrompts();
+    onCorrect();
+  } else if (onCorrect) {
+    const inputs = [...document.querySelectorAll(".count-question-input")];
+    if (inputs.length && inputs.every(input => input.value.trim() !== "")) {
+      checkCounts();
+    }
   }
+}
+
+function setupCountCheckDialog() {
+  const dialog = document.querySelector("#countCheckDialog");
+  const checkButton = document.querySelector("#checkCountButton");
+  const skipButton = document.querySelector("#skipCountCheckButton");
+  checkButton?.addEventListener("click", () => {
+    closeCountCheckDialog();
+    checkCounts();
+  });
+  skipButton?.addEventListener("click", () => {
+    closeCountCheckDialog();
+    checkCounts();
+  });
+  dialog?.addEventListener("keydown", event => {
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      const nextButton = document.activeElement === checkButton ? skipButton : checkButton;
+      nextButton?.focus();
+      return;
+    }
+    if (event.key === "Enter" && (document.activeElement === checkButton || document.activeElement === skipButton)) {
+      event.preventDefault();
+      document.activeElement.click();
+    }
+  });
+}
+
+function isStandaloneNumberMission() {
+  return new Set(["feature", "ordering", "carroll", "venn", "nested", "implicit"])
+    .has(state.mission);
+}
+
+function advanceMissionFromNumbers() {
+  if (!state.countChallenge || !isStandaloneNumberMission()) return false;
+  const mission = state.mission;
+  state.countChallenge = null;
+  clearInlineCountPrompts();
+  resetMistakeCounter();
+  lockSubmitButton();
+  if (mission === "feature") {
+    advanceQuestionFromCount();
+  } else if (mission === "compare") {
+    advanceComparePair();
+  } else if (mission === "carroll") {
+    finishCarrollCycle();
+  } else {
+    finishSet(collectSmileyRects());
+  }
+  return true;
+}
+
+function openCountCheckDialog() {
+  document.querySelector("#countCheckDialog")?.classList.remove("hidden");
+  document.querySelector("#skipCountCheckButton")?.focus();
+}
+
+function closeCountCheckDialog() {
+  document.querySelector("#countCheckDialog")?.classList.add("hidden");
 }
 
 function renderInlineCountPrompts(items) {
@@ -2984,12 +3269,25 @@ function clearInlineCountPrompts() {
 function resetCountChallenge() {
   state.countChallenge = null;
   clearInlineCountPrompts();
+  const countableMissions = new Set(["feature", "ordering", "carroll", "venn", "nested", "implicit"]);
+  if (!state.useNumbers || !countableMissions.has(state.mission)) return;
+  const missionAtReset = state.mission;
+  window.queueMicrotask(() => {
+    if (!state.useNumbers || state.mission !== missionAtReset || state.countChallenge) return;
+    const items = state.mission === "feature" ? buildFeatureCountItems() : buildMissionCountItems();
+    startCountChallenge(items, null);
+  });
 }
 
 function getCountPromptMount(item) {
   if (item.target === "tray-label") return els.trayLabel;
+  if (item.target === "compare-panel") return els.comparePanel;
   if (item.target === "with-header") return els.withHeader;
   if (item.target === "without-header") return els.withoutHeader;
+  if (item.target === "carroll-column-with") return els.carrollTopWith;
+  if (item.target === "carroll-column-without") return els.carrollTopWithout;
+  if (item.target === "carroll-row-with") return els.carrollSideWith;
+  if (item.target === "carroll-row-without") return els.carrollSideWithout;
   if (item.target === "compare-equal") return els.compareEqualZone;
   if (item.target === "compare-different") return els.compareDifferentZone;
   if (item.zone) return getZoneElement(item.zone);
@@ -3017,6 +3315,24 @@ function createCountBox(item, index) {
   input.placeholder = "?";
   input.setAttribute("aria-label", typeof item.label === "string" ? `${item.label} count` : "Count");
   input.dataset.countIndex = String(index);
+  input.tabIndex = 10 + index;
+  input.addEventListener("input", () => {
+    input.classList.remove("is-missing");
+    input.setAttribute("aria-invalid", "false");
+  });
+  input.addEventListener("keydown", event => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const inputs = [...document.querySelectorAll(".count-question-input")]
+      .sort((first, second) => Number(first.dataset.countIndex) - Number(second.dataset.countIndex));
+    const currentIndex = inputs.indexOf(input);
+    if (currentIndex >= 0 && currentIndex + 1 < inputs.length) {
+      inputs[currentIndex + 1].focus();
+      inputs[currentIndex + 1].select();
+    } else {
+      els.submitSortButton.click();
+    }
+  });
   label.append(input);
   return label;
 }
@@ -3040,19 +3356,36 @@ function buildMissionCountItems() {
   }
   if (state.mission === "compare") {
     return [
-      { label: "Compared", expected: state.compareSmileys.length, whole: true, target: "tray-label", showLabel: false },
-      { label: "=", expected: features.filter(feature => getCompareAnswer(feature) === "equal").length, target: "compare-equal", showLabel: false },
-      { label: "\u2260", expected: features.filter(feature => getCompareAnswer(feature) === "different").length, target: "compare-different", showLabel: false }
+      { label: "Compared", expected: state.compareSmileys.length, whole: true, target: "compare-panel", showLabel: false },
+      { label: createRelationIcon("equal"), expected: features.filter(feature => getCompareAnswer(feature) === "equal").length, target: "compare-equal", showLabel: false },
+      { label: createRelationIcon("different"), expected: features.filter(feature => getCompareAnswer(feature) === "different").length, target: "compare-different", showLabel: false }
     ];
   }
   if (state.mission === "carroll") {
     const [columnFeature, rowFeature] = state.activeCarrollCriteria;
+    const candidates = [
+      { key: "cell-with-with", expected: countSmileysForMissionZone("carroll-with-with"), zone: "carroll-with-with", showLabel: false },
+      { key: "cell-without-with", expected: countSmileysForMissionZone("carroll-without-with"), zone: "carroll-without-with", showLabel: false },
+      { key: "cell-with-without", expected: countSmileysForMissionZone("carroll-with-without"), zone: "carroll-with-without", showLabel: false },
+      { key: "cell-without-without", expected: countSmileysForMissionZone("carroll-without-without"), zone: "carroll-without-without", showLabel: false },
+      { key: "column-with", expected: state.smileys.filter(columnFeature.get).length, target: "carroll-column-with", showLabel: false },
+      { key: "column-without", expected: state.smileys.filter(smiley => !columnFeature.get(smiley)).length, target: "carroll-column-without", showLabel: false },
+      { key: "row-with", expected: state.smileys.filter(rowFeature.get).length, target: "carroll-row-with", showLabel: false },
+      { key: "row-without", expected: state.smileys.filter(smiley => !rowFeature.get(smiley)).length, target: "carroll-row-without", showLabel: false }
+    ];
+    const signature = ["carroll", columnFeature.key, rowFeature.key, ...state.smileys.map(smiley => smiley.id)].join("|");
+    if (state.countItemSelection?.signature !== signature) {
+      state.countItemSelection = {
+        signature,
+        keys: shuffle(candidates.map(item => item.key)).slice(0, 3)
+      };
+    }
+    const selectedItems = state.countItemSelection.keys
+      .map(key => candidates.find(item => item.key === key))
+      .filter(Boolean);
     return [
       { label: "Whole", expected: state.smileys.length, whole: true, target: "tray-label", showLabel: false },
-      { label: createCountIconGroup([createFeatureIcon(columnFeature), createFeatureIcon(rowFeature)]), expected: countSmileysInZone("carroll-with-with"), zone: "carroll-with-with", showLabel: false },
-      { label: createCountIconGroup([createFeatureIcon(columnFeature, true), createFeatureIcon(rowFeature)]), expected: countSmileysInZone("carroll-without-with"), zone: "carroll-without-with", showLabel: false },
-      { label: createCountIconGroup([createFeatureIcon(columnFeature), createFeatureIcon(rowFeature, true)]), expected: countSmileysInZone("carroll-with-without"), zone: "carroll-with-without", showLabel: false },
-      { label: createCountIconGroup([createFeatureIcon(columnFeature, true), createFeatureIcon(rowFeature, true)]), expected: countSmileysInZone("carroll-without-without"), zone: "carroll-without-without", showLabel: false }
+      ...selectedItems
     ];
   }
   if (state.mission === "venn") {
@@ -3060,7 +3393,7 @@ function buildMissionCountItems() {
       { label: "Whole", expected: state.smileys.length, whole: true, target: "tray-label", showLabel: false },
       ...getVennZoneKeys().map(zone => ({
         label: createVennCountLabel(zone),
-        expected: countSmileysInZone(zone),
+        expected: countSmileysForMissionZone(zone),
         zone,
         showLabel: false
       }))
@@ -3070,18 +3403,18 @@ function buildMissionCountItems() {
     const [outerFeature, innerFeature] = state.activeNestedCriteria;
     return [
       { label: "Whole", expected: state.smileys.length, whole: true, target: "tray-label", showLabel: false },
-      { label: createCountIconGroup([createFeatureIcon(outerFeature), createFeatureIcon(innerFeature)]), expected: countSmileysInZone("nested-inner"), zone: "nested-inner", showLabel: false },
-      { label: createFeatureIcon(outerFeature), expected: countSmileysInZone("nested-outer"), zone: "nested-outer", showLabel: false },
-      { label: createFeatureIcon(outerFeature, true), expected: countSmileysInZone("nested-outside"), zone: "nested-outside", showLabel: false }
+      { label: createCountIconGroup([createFeatureIcon(outerFeature), createFeatureIcon(innerFeature)]), expected: countSmileysForMissionZone("nested-inner"), zone: "nested-inner", showLabel: false },
+      { label: createFeatureIcon(outerFeature), expected: countSmileysForMissionZone("nested-outer"), zone: "nested-outer", showLabel: false },
+      { label: createFeatureIcon(outerFeature, true), expected: countSmileysForMissionZone("nested-outside"), zone: "nested-outside", showLabel: false }
     ];
   }
   if (state.mission === "implicit") {
     return [
       { label: "Whole", expected: state.smileys.length, whole: true, target: "tray-label", showLabel: false },
-      { label: "Left", expected: countSmileysInZone("implicit-a"), zone: "implicit-a", showLabel: false },
-      { label: "Middle", expected: countSmileysInZone("implicit-ab"), zone: "implicit-ab", showLabel: false },
-      { label: "Right", expected: countSmileysInZone("implicit-b"), zone: "implicit-b", showLabel: false },
-      { label: "Outside", expected: countSmileysInZone("implicit-outside"), zone: "implicit-outside", showLabel: false }
+      { label: "Left", expected: countSmileysForMissionZone("implicit-a"), zone: "implicit-a", showLabel: false },
+      { label: "Middle", expected: countSmileysForMissionZone("implicit-ab"), zone: "implicit-ab", showLabel: false },
+      { label: "Right", expected: countSmileysForMissionZone("implicit-b"), zone: "implicit-b", showLabel: false },
+      { label: "Outside", expected: countSmileysForMissionZone("implicit-outside"), zone: "implicit-outside", showLabel: false }
     ];
   }
   return [{ label: "Whole", expected: state.smileys.length, whole: true, target: "tray-label", showLabel: false }];
@@ -3134,6 +3467,41 @@ function resetPermutationState() {
   state.pairCombinationAlbum = [];
   state.pairCombinationHadMistake = false;
   state.pairCombinationGroupSizes = [2, 2];
+}
+
+function createRelationIcon(relation) {
+  if (!USE_VISUAL_RELATION_ICONS) {
+    const symbol = document.createElement("span");
+    symbol.className = "relation-symbol-legacy";
+    symbol.textContent = relation === "different" ? "≠" : "=";
+    return symbol;
+  }
+  const icon = document.createElement("span");
+  icon.className = `relation-pair-icon ${relation === "different" ? "is-different" : "is-same"}`;
+  icon.setAttribute("aria-hidden", "true");
+  icon.append(document.createElement("i"), document.createElement("i"));
+  return icon;
+}
+
+function markMissingCountInputs(inputs = [...document.querySelectorAll(".count-question-input")]) {
+  const missingInputs = inputs.filter(input => input.value.trim() === "");
+  inputs.forEach(input => {
+    const isMissing = missingInputs.includes(input);
+    input.classList.toggle("is-missing", isMissing);
+    input.setAttribute("aria-invalid", String(isMissing));
+  });
+  missingInputs[0]?.focus();
+  return missingInputs.length > 0;
+}
+
+function countSmileysForMissionZone(zone) {
+  return state.smileys.filter(smiley => {
+    if (zone.startsWith("carroll-")) return getCarrollZoneForSmiley(smiley, state.activeCarrollCriteria) === zone;
+    if (zone.startsWith("venn-")) return getVennZoneForSmiley(smiley, state.activeVennCriteria) === zone;
+    if (zone.startsWith("nested-")) return getNestedZoneForSmiley(smiley, state.activeNestedCriteria) === zone;
+    if (zone.startsWith("implicit-")) return getImplicitZoneForSmiley(smiley, state.activeImplicitCriteria) === zone;
+    return smiley.zone === zone;
+  }).length;
 }
 
 function resetSelectionState() {
@@ -4610,7 +4978,7 @@ function renderSimpleCompare() {
     relationButton.className = "simple-relation-button";
     relationButton.dataset.featureKey = feature.key;
     const relation = getSimpleRelationMark(feature.key);
-    relationButton.textContent = relation === "different" ? "\u2260" : "=";
+    relationButton.replaceChildren(createRelationIcon(relation));
     relationButton.classList.toggle("is-different", relation === "different");
     relationButton.addEventListener("click", () => {
       stopComparisonIconTutorial();
@@ -6191,8 +6559,11 @@ function finishSet(previousRects) {
 function runNewSmileysCycleTransition(startNextRound, options = {}) {
   const animateSmileys = options.animateSmileys !== false;
   const fadeCategories = options.fadeCategories !== false;
-  const exitStartDelay = animateSmileys ? CYCLE_CELEBRATION_MS : 0;
-  const nextRoundDelay = exitStartDelay + (animateSmileys ? CYCLE_EXIT_MS : CYCLE_CELEBRATION_MS);
+  const returnHomeDuration = animateSmileys ? 720 : 0;
+  const returnHomeDelay = animateSmileys ? CYCLE_CELEBRATION_MS : 0;
+  const exitStartDelay = returnHomeDelay + returnHomeDuration;
+  const reorderStartDelay = exitStartDelay + (animateSmileys ? ROOM_EXIT_MS : CYCLE_CELEBRATION_MS);
+  const nextRoundDelay = reorderStartDelay + (animateSmileys ? ROOM_REORDER_MS : 0);
 
   state.phase = "celebrating";
   els.workPanel.classList.add("is-celebrating");
@@ -6205,18 +6576,30 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
   if (animateSmileys) {
     scheduleCycleTimer(() => {
       els.workPanel.classList.remove("smileys-wiggling");
+      returnRoomSmileysToTray();
+    }, returnHomeDelay);
+
+    scheduleCycleTimer(() => {
+      markDepartingRoomSmileys();
       els.workPanel.classList.add("smileys-exiting");
       if (fadeCategories) {
         els.workPanel.classList.add("criteria-fading-out");
       }
     }, exitStartDelay);
+
+    scheduleCycleTimer(() => {
+      compactRemainingRoomSmileys();
+    }, reorderStartDelay);
+
   }
 
   scheduleCycleTimer(() => {
     startNextRound();
+    state.departingSmileyIds = [];
     els.workPanel.classList.remove("is-celebrating");
     els.workPanel.classList.remove("smileys-wiggling");
     els.workPanel.classList.remove("smileys-exiting");
+    els.workPanel.classList.remove("smileys-returning-home");
     els.workPanel.classList.remove("criteria-fading-out");
     if (animateSmileys) {
       els.workPanel.classList.add("cycle-fading-in");
@@ -6230,12 +6613,34 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
     scheduleCycleTimer(() => {
       els.workPanel.classList.remove("cycle-fading-in");
       els.workPanel.classList.remove("criteria-fading-in");
+      state.enteringSmileyIds = [];
     }, nextRoundDelay + CYCLE_ENTER_MS);
   } else if (fadeCategories) {
     scheduleCycleTimer(() => {
       els.workPanel.classList.remove("criteria-fading-in");
     }, nextRoundDelay + 460);
   }
+}
+
+function compactRemainingRoomSmileys() {
+  const departingIds = new Set(state.departingSmileyIds);
+  if (!departingIds.size) return;
+  const previousRects = collectSmileyRects();
+  departingIds.forEach(id => {
+    document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.remove();
+  });
+  animateSmileysFrom(previousRects, null, "pair");
+}
+
+function returnRoomSmileysToTray() {
+  const previousRects = collectSmileyRects();
+  state.smileys.forEach((smiley, index) => {
+    smiley.zone = "tray";
+    smiley.originalOrder = index;
+    smiley.placementOrder = index;
+  });
+  renderSmileys();
+  animateSmileysFrom(previousRects, null, "pair");
 }
 
 function shouldReuseSmileysForNextCycle(mission) {
@@ -6257,6 +6662,26 @@ function finishReusableCycle(mission) {
   scheduleCycleTimer(() => {
     els.workPanel.classList.remove("criteria-fading-in");
   }, 1520);
+}
+
+function markDepartingRoomSmileys() {
+  const nodes = [...els.workPanel.querySelectorAll(".smiley")]
+    .filter(node => !node.closest(".album-photo, .creator-panel"));
+  const departingCount = state.rememberRoomState
+    ? Math.min(nodes.length, 1 + Math.floor(Math.random() * Math.min(4, nodes.length)))
+    : nodes.length;
+  shuffle(nodes).slice(0, departingCount).forEach(node => {
+    node.classList.add("is-cycle-departing");
+    const hand = document.createElement("span");
+    hand.className = "goodbye-hand";
+    hand.textContent = "👋";
+    hand.setAttribute("aria-hidden", "true");
+    node.append(hand);
+  });
+  state.departingSmileyIds = nodes
+    .filter(node => node.classList.contains("is-cycle-departing"))
+    .map(node => node.dataset.id)
+    .filter(Boolean);
 }
 
 function shouldAnimateRoomSmileys(mission) {
@@ -6317,7 +6742,7 @@ function startNextMissionRound(completedMission) {
   } else if (completedMission === "permutation") {
     startPermutationMission(false);
   } else if (completedMission === "selection") {
-    startSelectionMission(false);
+    startSelectionMission(false, nextCount);
   } else if (completedMission === "creator") {
     startCreatorMission(false);
   } else if (completedMission === "venn") {
@@ -6417,6 +6842,7 @@ function clearCycleTimers() {
     els.workPanel.classList.remove("cycle-fading-out");
     els.workPanel.classList.remove("cycle-fading-in");
     els.workPanel.classList.remove("smileys-exiting");
+    els.workPanel.classList.remove("smileys-returning-home");
     els.workPanel.classList.remove("smileys-wiggling");
     els.workPanel.classList.remove("criteria-fading-out");
     els.workPanel.classList.remove("criteria-fading-in");
@@ -6434,9 +6860,13 @@ function celebrateCycle(duration = 1800) {
 
 
 function randomCountDifferentFrom(previousCount) {
+  if (state.rememberRoomState) return previousCount;
   let count = previousCount;
   while (count === previousCount) {
     count = state.useNumbers ? Math.floor(Math.random() * 9) + 2 : getDefaultSmileyCount();
+    // A population change of at most three still permits at least one departure
+    // and no more than four arrivals in the same transition.
+    if (state.rememberRoomState && Math.abs(count - previousCount) > 3) count = previousCount;
   }
   return count;
 }

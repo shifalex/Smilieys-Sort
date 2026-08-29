@@ -11,6 +11,7 @@ export const els = {
   soundSetting: document.querySelector("#soundSetting"),
   musicSetting: document.querySelector("#musicSetting"),
   numbersSetting: document.querySelector("#numbersSetting"),
+  roomMemorySetting: document.querySelector("#roomMemorySetting"),
   featureMissionButton: document.querySelector("#featureMissionButton"),
   similarityMissionButton: document.querySelector("#similarityMissionButton"),
   orderingMissionButton: document.querySelector("#orderingMissionButton"),

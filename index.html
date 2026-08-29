@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=hybrid-drop-position-v112-20260727">
+    <link rel="stylesheet" href="styles.css?v=desktop-circle-fit-v154-20260814">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -51,6 +51,12 @@
                   <text x="8.5" y="12.5">1</text>
                   <text x="23.5" y="12.5">2</text>
                   <text x="16" y="25.5">3</text>
+                </svg>
+              </button>
+              <button class="settings-toggle" type="button" id="roomMemorySetting" role="switch" aria-label="Remember the room" aria-checked="true" title="Remember the room">
+                <svg class="settings-icon" viewBox="0 0 32 32" aria-hidden="true">
+                  <path d="M5 27V12l11-7 11 7v15M11 27V17h10v10"></path>
+                  <path class="settings-icon-fill" d="M13 11h6v4h-6z"></path>
                 </svg>
               </button>
               <button class="settings-toggle" type="button" id="soundSetting" role="switch" aria-label="Sounds" aria-checked="true" title="Sounds">
@@ -119,13 +125,13 @@
             </button>
             <button class="mission-choice simple-compare-mission" type="button" id="simpleCompareMissionButton" aria-label="Easy Compare two smileys">
               <span class="compare-sketch" aria-hidden="true">
-                <span></span><strong>V</strong><span></span>
+                <span></span><strong><span class="relation-symbol-legacy">V</span><span class="relation-pair-icon is-same"><i></i><i></i></span></strong><span></span>
               </span>
               <span class="mission-word" aria-hidden="true">Easy Compare</span>
             </button>
             <button class="mission-choice compare-mission" type="button" id="compareMissionButton" aria-label="Compare two smileys">
               <span class="compare-sketch" aria-hidden="true">
-                <span></span><strong>=</strong><span></span>
+                <span></span><strong><span class="relation-symbol-legacy">=</span><span class="relation-pair-icon is-different"><i></i><i></i></span></strong><span></span>
               </span>
               <span class="mission-word" aria-hidden="true">Compare</span>
             </button>
@@ -264,8 +270,8 @@
           <div class="compare-faces" id="compareFaces" aria-label="Smileys to compare"></div>
           <div class="compare-drag-view" id="compareDragView">
             <div class="compare-column-head compare-bank-head" aria-hidden="true"></div>
-            <div class="compare-column-head compare-symbol-head">=</div>
-            <div class="compare-column-head compare-symbol-head">&ne;</div>
+            <div class="compare-column-head compare-symbol-head" aria-label="Same"><span class="relation-symbol-legacy">=</span><span class="relation-pair-icon is-same" aria-hidden="true"><i></i><i></i></span></div>
+            <div class="compare-column-head compare-symbol-head" aria-label="Different"><span class="relation-symbol-legacy">≠</span><span class="relation-pair-icon is-different" aria-hidden="true"><i></i><i></i></span></div>
             <div class="criteria-bank" id="compareCriteriaBank" data-compare-zone="bank" aria-label="Criteria to compare"></div>
             <div class="compare-columns">
               <div class="compare-drop-zone" id="compareEqualZone" data-compare-zone="equal" aria-label="Equal criteria"></div>
@@ -446,6 +452,16 @@
       <span class="firework firework-four" aria-hidden="true"></span>
     </div>
 
+    <div class="count-check-dialog hidden" id="countCheckDialog" role="dialog" aria-modal="true" aria-labelledby="countCheckTitle">
+      <div class="count-check-card">
+        <h2 id="countCheckTitle">WANNA CHECK?</h2>
+        <div class="count-check-actions">
+          <button type="button" class="primary-button" id="skipCountCheckButton">NO, CONTINUE</button>
+          <button type="button" class="secondary-button" id="checkCountButton">CHECK</button>
+        </div>
+      </div>
+    </div>
+
     <div class="venn-motion-lab hidden" id="vennMotionLab" role="dialog" aria-modal="true" aria-label="Moving circles laboratory">
       <div class="venn-motion-lab-card">
         <button class="venn-motion-lab-close" type="button" id="vennMotionLabClose" aria-label="Close moving circles laboratory"></button>
@@ -486,11 +502,13 @@
       </button>
     </template>
 
-    <script type="module" src="app.js?v=hybrid-drop-position-v112-20260727"></script>
+    <script type="module" src="app.js?v=desktop-circle-fit-v154-20260814"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+          navigator.serviceWorker.register("./service-worker.js", { updateViaCache: "none" })
+            .then(registration => registration.update())
+            .catch(() => {});
         });
       }
     </script>
