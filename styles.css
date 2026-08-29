@@ -5750,6 +5750,23 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
   background: #2b2521;
 }
 
+.smiley.mistake-wiggle {
+  animation: mistakeUnhappyWiggle 2s ease-in-out both;
+}
+
+.smiley.mistake-wiggle .mouth {
+  bottom: 5%;
+  border-top: 3px solid #2b2521;
+  border-bottom: 0;
+  border-radius: 30px 30px 0 0;
+}
+
+@keyframes mistakeUnhappyWiggle {
+  0%, 100% { transform: translateX(0) rotate(0deg); filter: brightness(1); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px) rotate(-3deg); filter: brightness(0.88); }
+  20%, 40%, 60%, 80% { transform: translateX(5px) rotate(3deg); filter: brightness(0.88); }
+}
+
 .left-eye {
   left: 22%;
 }

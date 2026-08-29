@@ -2917,13 +2917,64 @@ function registerMistake({ returnSmileys = false } = {}) {
     state.mistakeStreak += 1;
   }
   signalIncorrect();
-  if (returnSmileys && state.mistakeStreak >= 2 && !state.returnAfterErrorPending) {
+
+  if (state.mistakeStreak === 1) {
+    animateUnhappySmileys(state.smileys.map(smiley => smiley.id));
+  } else if (state.mistakeStreak === 2) {
+    animateUnhappySmileys(getWrongSmileyIds());
+  }
+
+  if (returnSmileys && state.mistakeStreak >= 3 && !state.returnAfterErrorPending) {
     state.returnAfterErrorPending = true;
     state.returnAfterErrorTimer = window.setTimeout(() => {
       state.returnAfterErrorTimer = null;
-      returnSmileysToTraySlowly();
+      returnSmileysToTraySlowly(getWrongSmileyIds());
     }, 560);
   }
+}
+
+function animateUnhappySmileys(ids) {
+  const idSet = new Set(ids);
+  els.workPanel.querySelectorAll(".smiley").forEach(node => {
+    if (!idSet.has(node.dataset.id)) return;
+    node.classList.remove("mistake-wiggle");
+    node.getBoundingClientRect();
+    node.classList.add("mistake-wiggle");
+    node.addEventListener("animationend", () => node.classList.remove("mistake-wiggle"), { once: true });
+  });
+}
+
+function getWrongSmileyIds() {
+  if (state.phase === "ordering") {
+    const placed = state.smileys
+      .filter(smiley => smiley.zone === "order")
+      .sort((first, second) => first.placementOrder - second.placementOrder);
+    const expected = [...placed].sort(compareByOrderingCriteria);
+    const misplaced = new Set(
+      placed.filter((smiley, index) => smiley.id !== expected[index]?.id).map(smiley => smiley.id)
+    );
+    state.smileys.filter(smiley => smiley.zone !== "order").forEach(smiley => misplaced.add(smiley.id));
+    return [...misplaced];
+  }
+
+  return state.smileys.filter(smiley => {
+    if (state.phase === "sorting") {
+      const feature = currentFeature();
+      return smiley.zone !== (feature.get(smiley) ? "with" : "without");
+    }
+    if (state.phase === "carroll") return smiley.zone !== getCarrollZoneForSmiley(smiley, state.activeCarrollCriteria);
+    if (state.phase === "venn") return smiley.zone !== getVennZoneForSmiley(smiley, state.activeVennCriteria);
+    if (state.phase === "nested") return smiley.zone !== getNestedZoneForSmiley(smiley, state.activeNestedCriteria);
+    if (state.phase === "counting") return smiley.zone !== getCountingZoneForSmiley(smiley);
+    if (state.phase === "implicit") return smiley.zone !== getImplicitZoneForSmiley(smiley, state.activeImplicitCriteria);
+    if (state.phase === "selection") {
+      return (smiley.zone === "selection-target") !== matchesSelectionRule(smiley);
+    }
+    if (state.phase === "statistics" && state.statisticsStep === "beard-frequency") {
+      return smiley.zone !== `statistics-beard-${smiley.beardLevel}`;
+    }
+    return false;
+  }).map(smiley => smiley.id);
 }
 
 function validateSort() {
@@ -2988,10 +3039,12 @@ function signalIncorrect() {
   window.requestAnimationFrame(() => target.classList.add("shake"));
 }
 
-function returnSmileysToTraySlowly() {
+function returnSmileysToTraySlowly(ids = state.smileys.map(smiley => smiley.id)) {
   const previousRects = collectSmileyRects();
+  const idSet = new Set(ids);
 
   state.smileys.forEach(smiley => {
+    if (!idSet.has(smiley.id)) return;
     smiley.zone = "tray";
     smiley.placementOrder = smiley.originalOrder;
   });
@@ -5598,10 +5651,12 @@ function validateSelection() {
   state.selectionHadMistake = true;
   state.selectionCleanWins = 0;
   registerMistake();
-  if (state.mistakeStreak >= 2 && !state.returnAfterErrorPending) {
+  if (state.mistakeStreak >= 3 && !state.returnAfterErrorPending) {
     state.returnAfterErrorPending = true;
     const previousRects = collectSmileyRects();
+    const wrongIds = new Set(getWrongSmileyIds());
     state.smileys.forEach(smiley => {
+      if (!wrongIds.has(smiley.id)) return;
       smiley.zone = smiley.sourceZone;
       smiley.placementOrder = smiley.originalOrder;
     });
