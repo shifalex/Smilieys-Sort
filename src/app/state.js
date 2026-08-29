@@ -83,5 +83,6 @@ export const state = {
   returnAfterErrorPending: false,
   returnAfterErrorTimer: null,
   dragging: null,
+  smileyDrags: new Map(),
   cycleTimers: []
 };

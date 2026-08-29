@@ -2005,11 +2005,15 @@ function triadForFeature(smileys, feature) {
 }
 
 function renderSmileys(excludedId = null) {
+  const excludedIds = new Set([
+    ...[...state.smileyDrags.values()].map(drag => drag.id),
+    ...(excludedId ? [excludedId] : [])
+  ]);
   cleanupStrandedDragNodes();
   els.pairCombinationPanel?.classList.toggle("hidden", state.phase !== "pair-combination");
   getAllDropContainers().forEach(zone => zone.replaceChildren());
   getSmileysInRenderOrder().forEach(smiley => {
-    if (smiley.id === excludedId) {
+    if (excludedIds.has(smiley.id)) {
       if (smiley.zone === "order" || smiley.zone === "permutation-order" || smiley.zone === "statistics-order") {
         getZoneElement(smiley.zone).append(createOrderPlaceholder());
       }
@@ -2043,7 +2047,7 @@ function createOrderPlaceholder() {
 }
 
 function cleanupStrandedDragNodes() {
-  if (state.dragging) return;
+  if (state.dragging || state.smileyDrags.size) return;
   document.querySelectorAll("body > .smiley.dragging").forEach(node => node.remove());
 }
 
@@ -2126,15 +2130,16 @@ function beginDrag(event, node) {
     return;
   }
   if (state.phase === "statistics" && state.statisticsStep === "coins") return;
-  if (state.dragging) {
+  if (state.dragging || state.smileyDrags.size) {
     cancelActiveDrag();
   }
+  if (state.smileyDrags.size >= 4 || [...state.smileyDrags.values()].some(drag => drag.id === node.dataset.id)) return;
   cleanupStrandedDragNodes();
   playInteractionSound("pickup");
   const previousRects = collectSmileyRects();
   const rect = node.getBoundingClientRect();
   node.setPointerCapture(event.pointerId);
-  state.dragging = {
+  const drag = {
     id: node.dataset.id,
     node,
     pointerId: event.pointerId,
@@ -2145,6 +2150,7 @@ function beginDrag(event, node) {
     previewZone: null,
     previewIndex: null
   };
+  state.smileyDrags.set(event.pointerId, drag);
   node.style.width = `${rect.width}px`;
   node.style.height = `${rect.height}px`;
   node.classList.add("dragging");
@@ -2158,6 +2164,7 @@ function beginDrag(event, node) {
 }
 
 function cancelActiveDrag() {
+  if (state.smileyDrags.size) cancelDrag();
   if (!state.dragging) return;
   if (state.dragging.type === "average-smiley") {
     cancelAverageSmileyDrag();
@@ -2179,7 +2186,7 @@ function cancelActiveDrag() {
 }
 
 function beginAverageSmileyDrag(event, smileyNode) {
-  if (state.dragging) {
+  if (state.dragging || state.smileyDrags.size) {
     cancelActiveDrag();
   }
   const pair = smileyNode.closest(".average-pair");
@@ -2292,18 +2299,19 @@ function cleanupAverageSmileyDrag() {
 }
 
 function moveDrag(event) {
-  if (!state.dragging) return;
+  const drag = state.smileyDrags.get(event.pointerId);
+  if (!drag) return;
   event.preventDefault();
-  const { node, offsetX, offsetY } = state.dragging;
+  const { node, offsetX, offsetY } = drag;
   node.style.left = `${event.clientX - offsetX}px`;
   node.style.top = `${event.clientY - offsetY}px`;
-  const resolvedDrop = resolveDraggedSmileyDrop(event.clientX, event.clientY);
+  const resolvedDrop = resolveDraggedSmileyDrop(drag, event.clientX, event.clientY);
   markDropTarget(resolvedDrop.target);
-  previewOrderingDrag(resolvedDrop.x, resolvedDrop.y);
+  previewOrderingDrag(drag, resolvedDrop.x, resolvedDrop.y);
 }
 
-function getDraggedSmileyCenter(fallbackX, fallbackY) {
-  const rect = state.dragging?.node?.getBoundingClientRect();
+function getDraggedSmileyCenter(drag, fallbackX, fallbackY) {
+  const rect = drag?.node?.getBoundingClientRect();
   if (!rect) return { x: fallbackX, y: fallbackY };
   return {
     x: rect.left + (rect.width / 2),
@@ -2311,8 +2319,8 @@ function getDraggedSmileyCenter(fallbackX, fallbackY) {
   };
 }
 
-function resolveDraggedSmileyDrop(pointerX, pointerY) {
-  const smileyPosition = getDraggedSmileyCenter(pointerX, pointerY);
+function resolveDraggedSmileyDrop(drag, pointerX, pointerY) {
+  const smileyPosition = getDraggedSmileyCenter(drag, pointerX, pointerY);
   const smileyTarget = getDropTarget(smileyPosition.x, smileyPosition.y);
   const pointerTarget = getDropTarget(pointerX, pointerY);
   if (smileyTarget) {
@@ -2341,19 +2349,20 @@ function prepareTouchDragLift(node, event) {
 }
 
 function endDrag(event) {
-  if (!state.dragging) return;
+  const drag = state.smileyDrags.get(event.pointerId);
+  if (!drag) return;
   event.preventDefault();
   const previousRects = collectSmileyRects();
-  const resolvedDrop = resolveDraggedSmileyDrop(event.clientX, event.clientY);
+  const resolvedDrop = resolveDraggedSmileyDrop(drag, event.clientX, event.clientY);
   const dropZone = resolvedDrop.target;
   const carrollDropZone = state.phase === "carroll" && dropZone?.classList.contains("carroll-zone")
     ? dropZone.dataset.zone
     : null;
-  const smiley = state.smileys.find(item => item.id === state.dragging.id);
+  const smiley = state.smileys.find(item => item.id === drag.id);
   if (dropZone && smiley && shouldRejectPairCombinationDrop(smiley, dropZone.dataset.zone)) {
-    const returnRects = new Map([[smiley.id, state.dragging.node.getBoundingClientRect()]]);
-    restoreDraggedSmiley(smiley);
-    cleanupDrag();
+    const returnRects = new Map([[smiley.id, drag.node.getBoundingClientRect()]]);
+    restoreDraggedSmiley(smiley, drag);
+    cleanupDrag(drag);
     renderSmileys();
     animateSmileysFrom(returnRects, null, "fast");
     markRejectedSmiley(smiley.id);
@@ -2362,9 +2371,9 @@ function endDrag(event) {
     return;
   }
   if (dropZone && smiley && shouldRejectImplicitDrop(smiley, dropZone.dataset.zone)) {
-    const returnRects = new Map([[smiley.id, state.dragging.node.getBoundingClientRect()]]);
-    restoreDraggedSmiley(smiley);
-    cleanupDrag();
+    const returnRects = new Map([[smiley.id, drag.node.getBoundingClientRect()]]);
+    restoreDraggedSmiley(smiley, drag);
+    cleanupDrag(drag);
     renderSmileys();
     animateSmileysFrom(returnRects, null, "fast");
     markRejectedSmiley(smiley.id);
@@ -2374,10 +2383,10 @@ function endDrag(event) {
   if (dropZone && smiley) {
     moveSmileyToZone(smiley, dropZone.dataset.zone, resolvedDrop.x, resolvedDrop.y);
   } else if (smiley) {
-    restoreDraggedSmiley(smiley);
+    restoreDraggedSmiley(smiley, drag);
   }
   playInteractionSound(dropZone && smiley ? "drop" : "return");
-  cleanupDrag();
+  cleanupDrag(drag);
   renderSmileys();
   animateSmileysFrom(previousRects, null, "fast");
   if (carrollDropZone) {
@@ -2500,23 +2509,24 @@ function moveSmileyToStatisticsOrder(smiley, x, y) {
   }
 }
 
-function previewOrderingDrag(x, y) {
-  if (!["ordering", "permutation", "statistics"].includes(state.phase) || !state.dragging) return;
+function previewOrderingDrag(drag, x, y) {
+  if (!["ordering", "permutation", "statistics"].includes(state.phase) || !drag) return;
   if (state.phase === "statistics") return;
+  if (state.smileyDrags.size > 1) return;
   const orderZone = getActiveOrderZone();
   const orderZoneKey = getActiveOrderZoneKey();
   if (!isPointInsideElement(orderZone, x, y)) return;
-  const smiley = state.smileys.find(item => item.id === state.dragging.id);
+  const smiley = state.smileys.find(item => item.id === drag.id);
   if (!smiley) return;
   const insertIndex = getOrderInsertIndex(x, y);
-  if (state.dragging.previewZone === orderZoneKey && state.dragging.previewIndex === insertIndex) return;
+  if (drag.previewZone === orderZoneKey && drag.previewIndex === insertIndex) return;
 
   const previousRects = collectSmileyRects();
   moveSmileyToOrder(smiley, x, y);
-  state.dragging.previewZone = orderZoneKey;
-  state.dragging.previewIndex = insertIndex;
-  renderSmileys(state.dragging.id);
-  animateSmileysFrom(previousRects, state.dragging.id, "fast");
+  drag.previewZone = orderZoneKey;
+  drag.previewIndex = insertIndex;
+  renderSmileys(drag.id);
+  animateSmileysFrom(previousRects, drag.id, "fast");
 }
 
 function isPointInsideElement(element, x, y) {
@@ -2525,10 +2535,10 @@ function isPointInsideElement(element, x, y) {
   return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }
 
-function restoreDraggedSmiley(smiley) {
-  if (!state.dragging) return;
-  smiley.zone = state.dragging.originalZone || "tray";
-  smiley.placementOrder = state.dragging.originalPlacementOrder ?? smiley.originalOrder;
+function restoreDraggedSmiley(smiley, drag) {
+  if (!drag) return;
+  smiley.zone = drag.originalZone || "tray";
+  smiley.placementOrder = drag.originalPlacementOrder ?? smiley.originalOrder;
   normalizeOrderedSmileys();
 }
 
@@ -2638,29 +2648,40 @@ function getHoveredOrderInsertIndex(node, index) {
   return index;
 }
 
-function cancelDrag() {
-  const smiley = state.dragging ? state.smileys.find(item => item.id === state.dragging.id) : null;
-  if (smiley) {
-    restoreDraggedSmiley(smiley);
+function cancelDrag(event = null) {
+  if (event?.pointerId !== undefined) {
+    const drag = state.smileyDrags.get(event.pointerId);
+    if (!drag) return;
+    const smiley = state.smileys.find(item => item.id === drag.id);
+    if (smiley) restoreDraggedSmiley(smiley, drag);
+    cleanupDrag(drag);
+    renderSmileys();
+    return;
   }
-  cleanupDrag();
+  [...state.smileyDrags.values()].forEach(drag => {
+    const smiley = state.smileys.find(item => item.id === drag.id);
+    if (smiley) restoreDraggedSmiley(smiley, drag);
+    cleanupDrag(drag);
+  });
   renderSmileys();
 }
 
-function cleanupDrag() {
-  if (!state.dragging) return;
-  const { node, pointerId } = state.dragging;
+function cleanupDrag(drag) {
+  if (!drag) return;
+  const { node, pointerId } = drag;
   if (node.hasPointerCapture(pointerId)) {
     node.releasePointerCapture(pointerId);
   }
-  document.removeEventListener("pointermove", moveDrag);
-  document.removeEventListener("pointerup", endDrag);
-  document.removeEventListener("pointercancel", cancelDrag);
   node.classList.remove("dragging");
   node.removeAttribute("style");
   node.remove();
-  state.dragging = null;
-  clearDropMarks();
+  state.smileyDrags.delete(pointerId);
+  if (!state.smileyDrags.size) {
+    document.removeEventListener("pointermove", moveDrag);
+    document.removeEventListener("pointerup", endDrag);
+    document.removeEventListener("pointercancel", cancelDrag);
+    clearDropMarks();
+  }
 }
 
 function markDropTarget(target) {
@@ -4180,7 +4201,7 @@ function beginStatisticsCoinDrag(event, node) {
   event.preventDefault();
   event.stopPropagation();
   if (isCelebrating()) return;
-  if (state.dragging) {
+  if (state.dragging || state.smileyDrags.size) {
     cancelActiveDrag();
   }
   const coin = state.statisticsCoins.find(item => item.id === node.dataset.coinId);
@@ -4781,7 +4802,7 @@ function beginCompareCriteriaDrag(event, node) {
   event.preventDefault();
   stopComparisonIconTutorial();
   if (isCelebrating()) return;
-  if (state.dragging) {
+  if (state.dragging || state.smileyDrags.size) {
     cancelActiveDrag();
   }
   const rect = node.getBoundingClientRect();
@@ -5380,7 +5401,7 @@ function renderPermutationAlbum() {
 function beginAlbumPhotoDrag(event, node) {
   event.preventDefault();
   if (isCelebrating()) return;
-  if (state.dragging) {
+  if (state.dragging || state.smileyDrags.size) {
     cancelActiveDrag();
   }
   playInteractionSound("pickup");
