@@ -32,9 +32,10 @@ const VENN_CIRCLE_BOX_LIGHT_MODE = "all";
 const ROOM_EXIT_MS = 4000;
 const ROOM_REORDER_MS = 760;
 const SMILEY_RETURN_SETTLE_MS = 120;
-const SUCCESS_SMILEY_RETURN_MS = 4800;
-const SUCCESS_CATEGORY_FADE_OUT_MS = 200;
-const SUCCESS_CATEGORY_FADE_IN_MS = 220;
+const SUCCESS_SMILEY_RETURN_MS = 2400;
+const SUCCESS_CATEGORY_FADE_OUT_MS = 400;
+const SUCCESS_CATEGORY_FADE_IN_MS = 440;
+const CATEGORY_WIGGLE_MS = 800;
 // Flip to true to restore the paired-shape same/different icons everywhere.
 const USE_VISUAL_RELATION_ICONS = false;
 const MUSIC_NOTES = [261.63, 329.63, 392, 329.63, 293.66, 349.23, 440, 349.23];
@@ -3073,9 +3074,9 @@ function animateSmileysFrom(previousRects, excludedId = null, speed = "normal") 
   const transitionBySpeed = {
     fast: "transform 180ms ease-out",
     pair: "transform 680ms cubic-bezier(0.22, 1, 0.36, 1)",
-    cycle: "transform 4680ms cubic-bezier(0.45, 0, 0.55, 1)",
-    counting: "transform 2280ms cubic-bezier(0.45, 0, 0.55, 1)",
-    normal: "transform 4680ms cubic-bezier(0.45, 0, 0.55, 1)"
+    cycle: "transform 2340ms cubic-bezier(0.45, 0, 0.55, 1)",
+    counting: "transform 1140ms cubic-bezier(0.45, 0, 0.55, 1)",
+    normal: "transform 2340ms cubic-bezier(0.45, 0, 0.55, 1)"
   };
   previousRects.forEach((oldRect, id) => {
     if (id === excludedId) return;
@@ -3633,8 +3634,13 @@ function transitionToNextFeatureQuestion() {
   returnRoomSmileysToTray();
 
   scheduleCycleTimer(() => {
-    els.workPanel.classList.add("criteria-fading-out");
+    els.workPanel.classList.add("criteria-wiggling");
   }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS);
+
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("criteria-wiggling");
+    els.workPanel.classList.add("criteria-fading-out");
+  }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS + CATEGORY_WIGGLE_MS);
 
   scheduleCycleTimer(() => {
     const previousRects = collectSmileyRects();
@@ -3643,11 +3649,16 @@ function transitionToNextFeatureQuestion() {
     els.workPanel.classList.remove("is-celebrating");
     els.workPanel.classList.remove("criteria-fading-out");
     els.workPanel.classList.add("criteria-fading-in");
-  }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS + SUCCESS_CATEGORY_FADE_OUT_MS);
+  }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS + CATEGORY_WIGGLE_MS + SUCCESS_CATEGORY_FADE_OUT_MS);
 
   scheduleCycleTimer(() => {
     els.workPanel.classList.remove("criteria-fading-in");
-  }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS + SUCCESS_CATEGORY_FADE_OUT_MS + SUCCESS_CATEGORY_FADE_IN_MS);
+    els.workPanel.classList.add("criteria-wiggling");
+  }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS + CATEGORY_WIGGLE_MS + SUCCESS_CATEGORY_FADE_OUT_MS + SUCCESS_CATEGORY_FADE_IN_MS);
+
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("criteria-wiggling");
+  }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS + (CATEGORY_WIGGLE_MS * 2) + SUCCESS_CATEGORY_FADE_OUT_MS + SUCCESS_CATEGORY_FADE_IN_MS);
 }
 
 function startSimilarityPhase() {
@@ -6654,7 +6665,8 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
   const exitStartDelay = returnHomeDelay + returnHomeDuration +
     (fadeCategories ? SMILEY_RETURN_SETTLE_MS : 0);
   const reorderStartDelay = exitStartDelay + (animateSmileys ? ROOM_EXIT_MS : CYCLE_CELEBRATION_MS);
-  const fadeOutStartDelay = reorderStartDelay + (animateSmileys ? ROOM_REORDER_MS : 0);
+  const categoryWiggleStartDelay = reorderStartDelay + (animateSmileys ? ROOM_REORDER_MS : 0);
+  const fadeOutStartDelay = categoryWiggleStartDelay + (fadeCategories ? CATEGORY_WIGGLE_MS : 0);
   const nextRoundDelay = fadeOutStartDelay + (fadeCategories ? SUCCESS_CATEGORY_FADE_OUT_MS : 0);
 
   state.phase = "celebrating";
@@ -6684,6 +6696,11 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
 
   if (fadeCategories) {
     scheduleCycleTimer(() => {
+      els.workPanel.classList.add("criteria-wiggling");
+    }, categoryWiggleStartDelay);
+
+    scheduleCycleTimer(() => {
+      els.workPanel.classList.remove("criteria-wiggling");
       els.workPanel.classList.add("criteria-fading-out");
     }, fadeOutStartDelay);
   }
@@ -6716,12 +6733,21 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
     if (fadeCategories) {
       scheduleCycleTimer(() => {
         els.workPanel.classList.remove("criteria-fading-in");
+        els.workPanel.classList.add("criteria-wiggling");
       }, nextRoundDelay + CYCLE_ENTER_MS + SUCCESS_CATEGORY_FADE_IN_MS);
+
+      scheduleCycleTimer(() => {
+        els.workPanel.classList.remove("criteria-wiggling");
+      }, nextRoundDelay + CYCLE_ENTER_MS + SUCCESS_CATEGORY_FADE_IN_MS + CATEGORY_WIGGLE_MS);
     }
   } else if (fadeCategories) {
     scheduleCycleTimer(() => {
       els.workPanel.classList.remove("criteria-fading-in");
+      els.workPanel.classList.add("criteria-wiggling");
     }, nextRoundDelay + SUCCESS_CATEGORY_FADE_IN_MS);
+    scheduleCycleTimer(() => {
+      els.workPanel.classList.remove("criteria-wiggling");
+    }, nextRoundDelay + SUCCESS_CATEGORY_FADE_IN_MS + CATEGORY_WIGGLE_MS);
   }
 }
 
@@ -6758,19 +6784,29 @@ function finishReusableCycle(mission) {
   returnRoomSmileysToTray();
 
   scheduleCycleTimer(() => {
-    els.workPanel.classList.add("criteria-fading-out");
+    els.workPanel.classList.add("criteria-wiggling");
   }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS);
+
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("criteria-wiggling");
+    els.workPanel.classList.add("criteria-fading-out");
+  }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS + CATEGORY_WIGGLE_MS);
 
   scheduleCycleTimer(() => {
     startNextCycleWithSameSmileys(mission, collectSmileyRects());
     els.workPanel.classList.remove("is-celebrating");
     els.workPanel.classList.remove("criteria-fading-out");
     els.workPanel.classList.add("criteria-fading-in");
-  }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS + SUCCESS_CATEGORY_FADE_OUT_MS);
+  }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS + CATEGORY_WIGGLE_MS + SUCCESS_CATEGORY_FADE_OUT_MS);
 
   scheduleCycleTimer(() => {
     els.workPanel.classList.remove("criteria-fading-in");
-  }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS + SUCCESS_CATEGORY_FADE_OUT_MS + SUCCESS_CATEGORY_FADE_IN_MS);
+    els.workPanel.classList.add("criteria-wiggling");
+  }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS + CATEGORY_WIGGLE_MS + SUCCESS_CATEGORY_FADE_OUT_MS + SUCCESS_CATEGORY_FADE_IN_MS);
+
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("criteria-wiggling");
+  }, SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS + (CATEGORY_WIGGLE_MS * 2) + SUCCESS_CATEGORY_FADE_OUT_MS + SUCCESS_CATEGORY_FADE_IN_MS);
 }
 
 function markDepartingRoomSmileys() {
@@ -6822,7 +6858,7 @@ function finishCountingCycle() {
       startCountingMission(false);
     }
     els.workPanel.classList.remove("is-celebrating");
-  }, CYCLE_CELEBRATION_MS + 2400);
+  }, CYCLE_CELEBRATION_MS + 1200);
 }
 
 function startNextCountingCycle() {
@@ -6953,6 +6989,7 @@ function clearCycleTimers() {
     els.workPanel.classList.remove("smileys-exiting");
     els.workPanel.classList.remove("smileys-returning-home");
     els.workPanel.classList.remove("smileys-wiggling");
+    els.workPanel.classList.remove("criteria-wiggling");
     els.workPanel.classList.remove("criteria-fading-out");
     els.workPanel.classList.remove("criteria-fading-in");
     els.workPanel.classList.remove("is-celebrating");

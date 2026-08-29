@@ -5566,7 +5566,7 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
 }
 
 .smiley.returning {
-  transition: transform 4680ms cubic-bezier(0.45, 0, 0.55, 1);
+  transition: transform 2340ms cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 .smiley.returning-fast {
@@ -5578,11 +5578,11 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
 }
 
 .smiley.returning-cycle {
-  transition: transform 4680ms cubic-bezier(0.45, 0, 0.55, 1);
+  transition: transform 2340ms cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 .smiley.returning-counting {
-  transition: transform 2280ms cubic-bezier(0.45, 0, 0.55, 1);
+  transition: transform 1140ms cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 .smiley.is-traveling {
@@ -5670,25 +5670,48 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
   animation: none;
 }
 
+.work-panel.criteria-wiggling .column-head .feature-icon,
+.work-panel.criteria-wiggling .criterion-icon,
+.work-panel.criteria-wiggling .carroll-axis .feature-icon,
+.work-panel.criteria-wiggling .venn-circle-head .feature-icon,
+.work-panel.criteria-wiggling .counting-circle-head .feature-icon,
+.work-panel.criteria-wiggling .nested-category-head > *,
+.work-panel.criteria-wiggling .selection-source .feature-icon,
+.work-panel.criteria-wiggling .implicit-rule-head > *,
+.work-panel.criteria-wiggling .implicit-circle .feature-icon {
+  animation: categoryAttentionWiggle 400ms ease-in-out 2;
+  transform-origin: center;
+}
+
+@keyframes categoryAttentionWiggle {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-7deg) scale(1.06); }
+  75% { transform: rotate(7deg) scale(1.06); }
+}
+
 .work-panel.criteria-fading-out .column-head .feature-icon,
 .work-panel.criteria-fading-out .criterion-icon,
 .work-panel.criteria-fading-out .carroll-axis .feature-icon,
 .work-panel.criteria-fading-out .venn-circle-head .feature-icon,
+.work-panel.criteria-fading-out .counting-circle-head .feature-icon,
+.work-panel.criteria-fading-out .nested-category-head > *,
 .work-panel.criteria-fading-out .selection-source .feature-icon,
 .work-panel.criteria-fading-out .implicit-rule-head > *,
 .work-panel.criteria-fading-out .implicit-circle .feature-icon {
   opacity: 0;
-  transition: opacity 200ms ease;
+  transition: opacity 400ms ease;
 }
 
 .work-panel.criteria-fading-in .column-head .feature-icon,
 .work-panel.criteria-fading-in .criterion-icon,
 .work-panel.criteria-fading-in .carroll-axis .feature-icon,
 .work-panel.criteria-fading-in .venn-circle-head .feature-icon,
+.work-panel.criteria-fading-in .counting-circle-head .feature-icon,
+.work-panel.criteria-fading-in .nested-category-head > *,
 .work-panel.criteria-fading-in .selection-source .feature-icon,
 .work-panel.criteria-fading-in .implicit-rule-head > *,
 .work-panel.criteria-fading-in .implicit-circle .feature-icon {
-  animation: criteriaFadeIn 220ms ease both;
+  animation: criteriaFadeIn 440ms ease both;
 }
 
 @keyframes criteriaFadeIn {
