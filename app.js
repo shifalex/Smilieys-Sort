@@ -45,6 +45,7 @@ let vennMotionLabFrame = null;
 let vennMotionLabLastTime = 0;
 let vennMotionLabDirection = 1;
 let comparisonTutorialSequence = 0;
+let lastSubmitTouchTime = 0;
 
 function init() {
   document.documentElement.classList.toggle("visual-relation-icons", USE_VISUAL_RELATION_ICONS);
@@ -93,7 +94,16 @@ function init() {
   }
   setupCopyrightDedication();
   setupCountCheckDialog();
-  els.submitSortButton.addEventListener("click", () => validateCurrentPhase());
+  els.submitSortButton.addEventListener("pointerup", event => {
+    if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+    event.preventDefault();
+    lastSubmitTouchTime = Date.now();
+    validateCurrentPhase();
+  });
+  els.submitSortButton.addEventListener("click", () => {
+    if (Date.now() - lastSubmitTouchTime < 700) return;
+    validateCurrentPhase();
+  });
   document.addEventListener("keydown", event => {
     if (event.key !== "Enter" || els.workPanel.classList.contains("hidden")) return;
     if (event.target instanceof Element && event.target.closest("button, input, select, textarea")) return;
