@@ -3,7 +3,7 @@ import path from "node:path";
 
 const root = process.cwd();
 const dist = path.join(root, "dist");
-const includedRoots = ["index.html", "app.js", "styles.css", "manifest.webmanifest", "service-worker.js", "icons", "src"];
+const includedRoots = ["index.html", "reset.html", "app.js", "styles.css", "manifest.webmanifest", "service-worker.js", "icons", "src"];
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
