@@ -79,6 +79,7 @@ export const state = {
   reuseGoal: 3,
   nextPlacementOrder: 1,
   mistakeStreak: 0,
+  submitMistakeStreak: 0,
   returnAfterErrorPending: false,
   returnAfterErrorTimer: null,
   dragging: null,

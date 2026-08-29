@@ -53,6 +53,7 @@ function init() {
   state.enteringSmileyIds ??= [];
   state.departingSmileyIds ??= [];
   state.rememberedRooms ??= {};
+  state.submitMistakeStreak ??= 0;
   for (let count = 2; count <= 10; count += 1) {
     const button = document.createElement("button");
     button.type = "button";
@@ -2905,6 +2906,7 @@ function unlockSubmitButton() {
 
 function resetMistakeCounter() {
   state.mistakeStreak = 0;
+  state.submitMistakeStreak = 0;
   state.returnAfterErrorPending = false;
   if (state.returnAfterErrorTimer) {
     window.clearTimeout(state.returnAfterErrorTimer);
@@ -2915,16 +2917,17 @@ function resetMistakeCounter() {
 function registerMistake({ returnSmileys = false } = {}) {
   if (!state.returnAfterErrorPending) {
     state.mistakeStreak += 1;
+    state.submitMistakeStreak += 1;
   }
   signalIncorrect();
 
-  if (state.mistakeStreak === 1) {
+  if (state.submitMistakeStreak === 1) {
     animateUnhappySmileys(state.smileys.map(smiley => smiley.id));
-  } else if (state.mistakeStreak === 2) {
+  } else if (state.submitMistakeStreak === 2) {
     animateUnhappySmileys(getWrongSmileyIds());
   }
 
-  if (returnSmileys && state.mistakeStreak >= 3 && !state.returnAfterErrorPending) {
+  if (returnSmileys && state.submitMistakeStreak >= 3 && !state.returnAfterErrorPending) {
     state.returnAfterErrorPending = true;
     state.returnAfterErrorTimer = window.setTimeout(() => {
       state.returnAfterErrorTimer = null;
@@ -5651,7 +5654,7 @@ function validateSelection() {
   state.selectionHadMistake = true;
   state.selectionCleanWins = 0;
   registerMistake();
-  if (state.mistakeStreak >= 3 && !state.returnAfterErrorPending) {
+  if (state.submitMistakeStreak >= 3 && !state.returnAfterErrorPending) {
     state.returnAfterErrorPending = true;
     const previousRects = collectSmileyRects();
     const wrongIds = new Set(getWrongSmileyIds());
