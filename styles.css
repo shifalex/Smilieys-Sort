@@ -5578,7 +5578,7 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
 }
 
 .smiley.returning-cycle {
-  transition: transform 2040ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 3480ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .smiley.returning-counting {
@@ -5678,7 +5678,7 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
 .work-panel.criteria-fading-out .implicit-rule-head > *,
 .work-panel.criteria-fading-out .implicit-circle .feature-icon {
   opacity: 0;
-  transition: opacity 1260ms ease;
+  transition: opacity 420ms ease;
 }
 
 .work-panel.criteria-fading-in .column-head .feature-icon,
@@ -5688,7 +5688,7 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
 .work-panel.criteria-fading-in .selection-source .feature-icon,
 .work-panel.criteria-fading-in .implicit-rule-head > *,
 .work-panel.criteria-fading-in .implicit-circle .feature-icon {
-  animation: criteriaFadeIn 1380ms ease both;
+  animation: criteriaFadeIn 460ms ease both;
 }
 
 @keyframes criteriaFadeIn {
