@@ -5441,6 +5441,9 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
   background: var(--gold);
   cursor: grab;
   touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   box-shadow: 0 8px 16px rgba(23, 32, 42, 0.16);
   transition: transform 240ms ease, box-shadow 240ms ease, filter 240ms ease, opacity 240ms ease;
 }

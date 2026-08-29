@@ -59,6 +59,11 @@ function init() {
   state.departingSmileyIds ??= [];
   state.rememberedRooms ??= {};
   state.submitMistakeStreak ??= 0;
+  ["gesturestart", "gesturechange", "gestureend"].forEach(type => {
+    document.addEventListener(type, event => {
+      if (state.smileyDrags.size) event.preventDefault();
+    }, { passive: false });
+  });
   for (let count = 2; count <= 10; count += 1) {
     const button = document.createElement("button");
     button.type = "button";
