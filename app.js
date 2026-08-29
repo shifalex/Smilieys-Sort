@@ -2923,8 +2923,10 @@ function registerMistake({ returnSmileys = false } = {}) {
 
   if (state.submitMistakeStreak === 1) {
     animateUnhappySmileys(state.smileys.map(smiley => smiley.id));
+    holdSubmitDuringMistakeFeedback();
   } else if (state.submitMistakeStreak === 2) {
     animateUnhappySmileys(getWrongSmileyIds());
+    holdSubmitDuringMistakeFeedback();
   }
 
   if (returnSmileys && state.submitMistakeStreak >= 3 && !state.returnAfterErrorPending) {
@@ -2934,6 +2936,16 @@ function registerMistake({ returnSmileys = false } = {}) {
       returnSmileysToTraySlowly(getWrongSmileyIds());
     }, 560);
   }
+}
+
+function holdSubmitDuringMistakeFeedback() {
+  const feedbackPhase = state.phase;
+  els.submitSortButton.disabled = true;
+  window.setTimeout(() => {
+    if (state.phase === feedbackPhase && !state.returnAfterErrorPending) {
+      unlockSubmitButton();
+    }
+  }, 2000);
 }
 
 function animateUnhappySmileys(ids) {
@@ -3602,21 +3614,27 @@ function finishFeatureCycle() {
 }
 
 function transitionToNextFeatureQuestion() {
-  const previousRects = collectSmileyRects();
   state.phase = "transitioning";
   lockSubmitButton();
   els.workPanel.classList.add("is-celebrating");
-  els.workPanel.classList.add("criteria-fading-out");
+  returnRoomSmileysToTray();
+
   scheduleCycleTimer(() => {
+    els.workPanel.classList.add("criteria-fading-out");
+  }, 720 + SMILEY_RETURN_SETTLE_MS);
+
+  scheduleCycleTimer(() => {
+    const previousRects = collectSmileyRects();
     state.featureIndex += 1;
     startFeature(previousRects);
     els.workPanel.classList.remove("is-celebrating");
     els.workPanel.classList.remove("criteria-fading-out");
     els.workPanel.classList.add("criteria-fading-in");
-  }, 760);
+  }, 720 + SMILEY_RETURN_SETTLE_MS + 420);
+
   scheduleCycleTimer(() => {
     els.workPanel.classList.remove("criteria-fading-in");
-  }, 1520);
+  }, 720 + SMILEY_RETURN_SETTLE_MS + 420 + 460);
 }
 
 function startSimilarityPhase() {
