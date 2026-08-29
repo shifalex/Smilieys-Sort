@@ -2130,7 +2130,7 @@ function beginDrag(event, node) {
     return;
   }
   if (state.phase === "statistics" && state.statisticsStep === "coins") return;
-  if (state.dragging || state.smileyDrags.size) {
+  if (state.dragging) {
     cancelActiveDrag();
   }
   if (state.smileyDrags.size >= 4 || [...state.smileyDrags.values()].some(drag => drag.id === node.dataset.id)) return;
