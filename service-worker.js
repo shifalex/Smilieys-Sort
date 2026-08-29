@@ -1,4 +1,4 @@
-const CACHE_NAME = "smileys-sorting-game-v215";
+const CACHE_NAME = "smileys-sorting-game-v216";
 const APP_SHELL = [
   "./",
   "./index.html",

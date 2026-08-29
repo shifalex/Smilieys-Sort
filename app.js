@@ -31,7 +31,7 @@ const vennLightingStates = new WeakMap();
 const VENN_CIRCLE_BOX_LIGHT_MODE = "all";
 const ROOM_EXIT_MS = 4000;
 const ROOM_REORDER_MS = 760;
-const CATEGORY_ATTENTION_MS = 900;
+const SMILEY_RETURN_SETTLE_MS = 120;
 // Flip to true to restore the paired-shape same/different icons everywhere.
 const USE_VISUAL_RELATION_ICONS = false;
 const MUSIC_NOTES = [261.63, 329.63, 392, 329.63, 293.66, 349.23, 440, 349.23];
@@ -6562,8 +6562,8 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
   const fadeCategories = options.fadeCategories !== false;
   const returnHomeDuration = animateSmileys ? 720 : 0;
   const returnHomeDelay = animateSmileys ? CYCLE_CELEBRATION_MS : 0;
-  const categoryAttentionDelay = returnHomeDelay + returnHomeDuration;
-  const exitStartDelay = categoryAttentionDelay + (fadeCategories ? CATEGORY_ATTENTION_MS : 0);
+  const exitStartDelay = returnHomeDelay + returnHomeDuration +
+    (fadeCategories ? SMILEY_RETURN_SETTLE_MS : 0);
   const reorderStartDelay = exitStartDelay + (animateSmileys ? ROOM_EXIT_MS : CYCLE_CELEBRATION_MS);
   const nextRoundDelay = reorderStartDelay + (animateSmileys ? ROOM_REORDER_MS : 0);
 
@@ -6581,14 +6581,7 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
       returnRoomSmileysToTray();
     }, returnHomeDelay);
 
-    if (fadeCategories) {
-      scheduleCycleTimer(() => {
-        els.workPanel.classList.add("criteria-wiggling");
-      }, categoryAttentionDelay);
-    }
-
     scheduleCycleTimer(() => {
-      els.workPanel.classList.remove("criteria-wiggling");
       markDepartingRoomSmileys();
       els.workPanel.classList.add("smileys-exiting");
       if (fadeCategories) {
@@ -6609,7 +6602,6 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
     els.workPanel.classList.remove("smileys-wiggling");
     els.workPanel.classList.remove("smileys-exiting");
     els.workPanel.classList.remove("smileys-returning-home");
-    els.workPanel.classList.remove("criteria-wiggling");
     els.workPanel.classList.remove("criteria-fading-out");
     if (animateSmileys) {
       els.workPanel.classList.add("cycle-fading-in");
@@ -6659,19 +6651,25 @@ function shouldReuseSmileysForNextCycle(mission) {
 }
 
 function finishReusableCycle(mission) {
-  const previousRects = collectSmileyRects();
   state.phase = "transitioning";
   lockSubmitButton();
-  els.workPanel.classList.add("is-celebrating", "criteria-fading-out");
+  els.workPanel.classList.add("is-celebrating");
+  returnRoomSmileysToTray();
+
   scheduleCycleTimer(() => {
-    startNextCycleWithSameSmileys(mission, previousRects);
+    els.workPanel.classList.add("criteria-fading-out");
+  }, 720 + SMILEY_RETURN_SETTLE_MS);
+
+  scheduleCycleTimer(() => {
+    startNextCycleWithSameSmileys(mission, collectSmileyRects());
     els.workPanel.classList.remove("is-celebrating");
     els.workPanel.classList.remove("criteria-fading-out");
     els.workPanel.classList.add("criteria-fading-in");
-  }, 760);
+  }, 720 + SMILEY_RETURN_SETTLE_MS + 420);
+
   scheduleCycleTimer(() => {
     els.workPanel.classList.remove("criteria-fading-in");
-  }, 1520);
+  }, 720 + SMILEY_RETURN_SETTLE_MS + 420 + 460);
 }
 
 function markDepartingRoomSmileys() {
@@ -6854,7 +6852,6 @@ function clearCycleTimers() {
     els.workPanel.classList.remove("smileys-exiting");
     els.workPanel.classList.remove("smileys-returning-home");
     els.workPanel.classList.remove("smileys-wiggling");
-    els.workPanel.classList.remove("criteria-wiggling");
     els.workPanel.classList.remove("criteria-fading-out");
     els.workPanel.classList.remove("criteria-fading-in");
     els.workPanel.classList.remove("is-celebrating");

@@ -5666,23 +5666,6 @@ html:not(.layout-lighting-off) .counting-stage.has-venn-region-light > .counting
   animation: none;
 }
 
-.work-panel.criteria-wiggling .column-head .feature-icon,
-.work-panel.criteria-wiggling .criterion-icon,
-.work-panel.criteria-wiggling .carroll-axis .feature-icon,
-.work-panel.criteria-wiggling .venn-circle-head .feature-icon,
-.work-panel.criteria-wiggling .selection-source .feature-icon,
-.work-panel.criteria-wiggling .implicit-rule-head > *,
-.work-panel.criteria-wiggling .implicit-circle .feature-icon {
-  animation: categoryAttentionWiggle 450ms ease-in-out 2;
-  transform-origin: center;
-}
-
-@keyframes categoryAttentionWiggle {
-  0%, 100% { transform: rotate(0deg) scale(1); }
-  25% { transform: rotate(-8deg) scale(1.08); }
-  75% { transform: rotate(8deg) scale(1.08); }
-}
-
 .work-panel.criteria-fading-out .column-head .feature-icon,
 .work-panel.criteria-fading-out .criterion-icon,
 .work-panel.criteria-fading-out .carroll-axis .feature-icon,
