@@ -6645,7 +6645,8 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
   const exitStartDelay = returnHomeDelay + returnHomeDuration +
     (fadeCategories ? SMILEY_RETURN_SETTLE_MS : 0);
   const reorderStartDelay = exitStartDelay + (animateSmileys ? ROOM_EXIT_MS : CYCLE_CELEBRATION_MS);
-  const nextRoundDelay = reorderStartDelay + (animateSmileys ? ROOM_REORDER_MS : 0);
+  const fadeOutStartDelay = reorderStartDelay + (animateSmileys ? ROOM_REORDER_MS : 0);
+  const nextRoundDelay = fadeOutStartDelay + (fadeCategories ? SUCCESS_CATEGORY_FADE_OUT_MS : 0);
 
   state.phase = "celebrating";
   els.workPanel.classList.add("is-celebrating");
@@ -6664,15 +6665,18 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
     scheduleCycleTimer(() => {
       markDepartingRoomSmileys();
       els.workPanel.classList.add("smileys-exiting");
-      if (fadeCategories) {
-        els.workPanel.classList.add("criteria-fading-out");
-      }
     }, exitStartDelay);
 
     scheduleCycleTimer(() => {
       compactRemainingRoomSmileys();
     }, reorderStartDelay);
 
+  }
+
+  if (fadeCategories) {
+    scheduleCycleTimer(() => {
+      els.workPanel.classList.add("criteria-fading-out");
+    }, fadeOutStartDelay);
   }
 
   scheduleCycleTimer(() => {
@@ -6682,11 +6686,10 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
     els.workPanel.classList.remove("smileys-wiggling");
     els.workPanel.classList.remove("smileys-exiting");
     els.workPanel.classList.remove("smileys-returning-home");
-    els.workPanel.classList.remove("criteria-fading-out");
     if (animateSmileys) {
       els.workPanel.classList.add("cycle-fading-in");
-    }
-    if (fadeCategories) {
+    } else if (fadeCategories) {
+      els.workPanel.classList.remove("criteria-fading-out");
       els.workPanel.classList.add("criteria-fading-in");
     }
   }, nextRoundDelay);
@@ -6694,9 +6697,18 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
   if (animateSmileys) {
     scheduleCycleTimer(() => {
       els.workPanel.classList.remove("cycle-fading-in");
-      els.workPanel.classList.remove("criteria-fading-in");
       state.enteringSmileyIds = [];
+      if (fadeCategories) {
+        els.workPanel.classList.remove("criteria-fading-out");
+        els.workPanel.classList.add("criteria-fading-in");
+      }
     }, nextRoundDelay + CYCLE_ENTER_MS);
+
+    if (fadeCategories) {
+      scheduleCycleTimer(() => {
+        els.workPanel.classList.remove("criteria-fading-in");
+      }, nextRoundDelay + CYCLE_ENTER_MS + SUCCESS_CATEGORY_FADE_IN_MS);
+    }
   } else if (fadeCategories) {
     scheduleCycleTimer(() => {
       els.workPanel.classList.remove("criteria-fading-in");
