@@ -7619,10 +7619,6 @@ body:has(.setup-panel:not(.hidden)) .count-check-dialog {
     justify-content: center;
   }
 
-  .creator-bank:has(> .creator-criterion-card:nth-child(2):last-child) {
-    grid-template-columns: 62px;
-  }
-
   .work-panel:has(.statistics-panel.is-average-only-step),
   .work-panel:has(.statistics-panel.is-average-only-step.is-average-many) {
     grid-template-areas:
@@ -7660,10 +7656,6 @@ body:has(.setup-panel:not(.hidden)) .count-check-dialog {
 
   .creator-bank {
     grid-template-columns: repeat(2, 54px);
-  }
-
-  .creator-bank:has(> .creator-criterion-card:nth-child(2):last-child) {
-    grid-template-columns: 54px;
   }
 
   .creator-criterion-card {
