@@ -2171,7 +2171,11 @@ function beginDrag(event, node) {
   if (state.dragging) {
     cancelActiveDrag();
   }
-  const dragLimit = isGuidedSelectionRound() ? 1 : 4;
+  const dragLimit = state.phase === "selection" && isSelectionPlayMode()
+    ? Number.POSITIVE_INFINITY
+    : isGuidedSelectionRound()
+      ? 1
+      : 4;
   if (state.smileyDrags.size >= dragLimit || [...state.smileyDrags.values()].some(drag => drag.id === node.dataset.id)) return;
   cleanupStrandedDragNodes();
   playInteractionSound("pickup");
