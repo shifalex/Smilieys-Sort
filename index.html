@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=ipad-feedback-v231-20260829">
+    <link rel="stylesheet" href="styles.css?v=selection-mode-v241-20260831">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -369,6 +369,10 @@
                 <div class="selection-caption" id="selectionCaption" aria-hidden="true"></div>
               </div>
             </div>
+            <button class="selection-mode-toggle" id="selectionSkipTutorialButton" type="button" aria-pressed="false">
+              <span class="selection-mode-option is-tutorial">Tutorial</span>
+              <span class="selection-mode-option is-play">Play</span>
+            </button>
           </div>
           <div class="selection-target-zone" id="selectionTargetZone" data-zone="selection-target" aria-label="Selection target"></div>
         </div>
@@ -502,6 +506,15 @@
       </button>
     </template>
 
-    <script type="module" src="app.js?v=ipad-feedback-v233-three-finger-20260829"></script>
+    <script>
+      if (window.location.protocol === "file:") {
+        const notice = document.createElement("div");
+        notice.className = "local-launch-notice";
+        notice.setAttribute("role", "alert");
+        notice.innerHTML = "<strong>The game needs its local server.</strong><br>Close this tab and double-click <code>START-LOCAL.cmd</code> in the game folder.";
+        document.body.append(notice);
+      }
+    </script>
+    <script type="module" src="app.js?v=selection-mode-v241-20260831"></script>
   </body>
 </html>

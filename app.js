@@ -23,7 +23,7 @@ import {
 import { shuffle, triadKey } from "./src/core/utils.js";
 import { els, getAllDropContainers, getZoneElement } from "./src/app/elements.js?v=room-memory-v113-20260808";
 import { setHeader, setProgress } from "./src/app/header.js";
-import { state } from "./src/app/state.js?v=room-memory-v113-20260808";
+import { state } from "./src/app/state.js?v=select-tutorial-v234-20260830";
 
 const vennLightingStates = new WeakMap();
 // "all" lights every region inside the hovered circle.
@@ -58,7 +58,9 @@ function init() {
   state.enteringSmileyIds ??= [];
   state.departingSmileyIds ??= [];
   state.rememberedRooms ??= {};
+  state.synchronizedCategorizationCriteria ??= [];
   state.submitMistakeStreak ??= 0;
+  state.selectionTutorialSkipped ??= false;
   ["gesturestart", "gesturechange", "gestureend"].forEach(type => {
     document.addEventListener(type, event => {
       if (state.smileyDrags.size) event.preventDefault();
@@ -82,6 +84,7 @@ function init() {
   els.permutationMissionButton.addEventListener("click", () => startPermutationMission());
   els.pairCombinationMissionButton.addEventListener("click", () => startPairCombinationMission());
   els.selectionMissionButton.addEventListener("click", () => startSelectionMission());
+  document.querySelector("#selectionSkipTutorialButton")?.addEventListener("click", toggleSelectionMode);
   els.creatorMissionButton.addEventListener("click", () => startCreatorMission());
   els.vennMissionButton.addEventListener("click", () => startVennMission());
   els.nestedMissionButton?.addEventListener("click", () => startNestedMission());
@@ -986,6 +989,7 @@ function startAverageMission(clearPendingTimers = true) {
 
 function startCarrollMission(clearPendingTimers = true, count = getDefaultSmileyCount()) {
   const rememberedSmileys = clearPendingTimers ? getRememberedRoom("carroll", count) : [];
+  const synchronizedCriteria = getSynchronizedCategorizationCriteria();
   const previousSmileys = !clearPendingTimers && state.mission === "carroll" ? state.smileys : rememberedSmileys;
   if (clearPendingTimers) {
     clearCycleTimers();
@@ -997,7 +1001,7 @@ function startCarrollMission(clearPendingTimers = true, count = getDefaultSmiley
   state.featureIndex = 0;
   state.nextPlacementOrder = 1;
   const setup = rememberedSmileys.length
-    ? { smileys: restoreRoomSmileys(rememberedSmileys), criteria: chooseCarrollCriteriaForSmileys(rememberedSmileys, []) }
+    ? { smileys: restoreRoomSmileys(rememberedSmileys), criteria: synchronizedCriteria.length === 2 ? synchronizedCriteria : chooseCarrollCriteriaForSmileys(rememberedSmileys, []) }
     : makeCarrollSet(state.requestedCount, previousSmileys);
   state.smileys = setup.smileys;
   state.setCycle = 0;
@@ -1147,6 +1151,7 @@ function startPairCombinationMission(clearPendingTimers = true) {
 function startSelectionMission(clearPendingTimers = true, count = getDefaultSmileyCount()) {
   count = Math.min(7, count);
   const rememberedSmileys = clearPendingTimers ? getRememberedRoom("selection", count) : [];
+  const synchronizedCriteria = getSynchronizedCategorizationCriteria();
   const previousSmileys = !clearPendingTimers && state.mission === "selection" ? state.smileys : rememberedSmileys;
   if (clearPendingTimers) {
     clearCycleTimers();
@@ -1158,7 +1163,7 @@ function startSelectionMission(clearPendingTimers = true, count = getDefaultSmil
   state.featureIndex = 0;
   state.nextPlacementOrder = 1;
   const setup = rememberedSmileys.length
-    ? { smileys: restoreRoomSmileys(rememberedSmileys), criteria: shuffle([...features]).slice(0, getSelectionCriterionCount()) }
+    ? { smileys: restoreRoomSmileys(rememberedSmileys), criteria: synchronizedCriteria.length === 2 ? synchronizedCriteria : shuffle([...features]).slice(0, getSelectionCriterionCount()) }
     : makeVennSetForCount(getSelectionCriterionCount(), state.requestedCount, previousSmileys);
   state.activeVennCriteria = setup.criteria;
   state.smileys = setup.smileys.map(smiley => {
@@ -1220,6 +1225,7 @@ function startCreatorMission(clearPendingTimers = true) {
 function startVennMission(clearPendingTimers = true, count = getDefaultSmileyCount()) {
   count = Math.min(7, count);
   const rememberedSmileys = clearPendingTimers ? getRememberedRoom("venn", count) : [];
+  const synchronizedCriteria = getSynchronizedCategorizationCriteria();
   const previousSmileys = !clearPendingTimers && state.mission === "venn" ? state.smileys : rememberedSmileys;
   if (clearPendingTimers) {
     clearCycleTimers();
@@ -1231,7 +1237,7 @@ function startVennMission(clearPendingTimers = true, count = getDefaultSmileyCou
   state.featureIndex = 0;
   state.nextPlacementOrder = 1;
   const setup = rememberedSmileys.length
-    ? { smileys: restoreRoomSmileys(rememberedSmileys), criteria: shuffle([...features]).slice(0, getVennCriterionCount()) }
+    ? { smileys: restoreRoomSmileys(rememberedSmileys), criteria: synchronizedCriteria.length === 2 ? synchronizedCriteria : shuffle([...features]).slice(0, getVennCriterionCount()) }
     : makeVennSet(state.requestedCount, previousSmileys);
   state.smileys = setup.smileys;
   state.setCycle = 0;
@@ -1370,7 +1376,15 @@ function showSetup() {
     "smileys-returning-home",
     "criteria-fading-out",
     "criteria-fading-in",
-    "cycle-fading-in"
+    "cycle-fading-in",
+    "selection-rule-wiggling",
+    "selection-rule-fading-out",
+    "selection-rule-fading-in",
+    "selection-rule-held-hidden",
+    "selection-venn-fading-out",
+    "selection-venn-fading-in",
+    "selection-venn-wiggling",
+    "selection-box-highlight"
   );
   els.similarityPanel.classList.add("hidden");
   els.nestedPanel.classList.add("hidden");
@@ -1394,6 +1408,7 @@ function showSetup() {
   state.orderingLevel = 1;
   state.vennLevel = 1;
   state.selectionLevel = 1;
+  state.selectionTutorialSkipped = false;
   state.creatorLevel = 1;
   state.permutationLevel = 1;
   state.countingLevel = 1;
@@ -1532,12 +1547,27 @@ function makeRoomAwareSmileys(previousSmileys, count, featureCount, validator = 
 function rememberCurrentRoom() {
   if (!state.rememberRoomState || !state.mission || !state.smileys.length) return;
   state.rememberedRooms[state.mission] = restoreRoomSmileys(state.smileys);
+  if (["carroll", "venn", "selection"].includes(state.mission)) {
+    state.rememberedRooms.categorization = restoreRoomSmileys(state.smileys);
+    const criteria = state.mission === "carroll" ? state.activeCarrollCriteria : state.activeVennCriteria;
+    state.synchronizedCategorizationCriteria = criteria.slice(0, 2).map(feature => feature.key);
+  }
 }
 
 function getRememberedRoom(mission, count) {
   if (!state.rememberRoomState) return [];
-  const room = state.rememberedRooms[mission] || [];
+  const sharedMission = ["carroll", "venn", "selection"].includes(mission);
+  const room = (sharedMission && state.rememberedRooms.categorization)
+    || state.rememberedRooms[mission]
+    || [];
   return room.length === count ? room : [];
+}
+
+function getSynchronizedCategorizationCriteria() {
+  return (state.synchronizedCategorizationCriteria || [])
+    .map(key => features.find(feature => feature.key === key))
+    .filter(Boolean)
+    .slice(0, 2);
 }
 
 function restoreRoomSmileys(smileys) {
@@ -1792,10 +1822,12 @@ function chooseSelectionSourceZone() {
 }
 
 function chooseSelectionSourceRule() {
-  const configuredMode = SELECTION_RULE_PROGRESSION[Math.min(
-    state.selectionLevel - 1,
-    SELECTION_RULE_PROGRESSION.length - 1
-  )] || "single";
+  const configuredMode = state.selectionTutorialSkipped
+    ? "random"
+    : SELECTION_RULE_PROGRESSION[Math.min(
+      state.selectionLevel - 1,
+      SELECTION_RULE_PROGRESSION.length - 1
+    )] || "single";
   const mode = configuredMode === "random"
     ? shuffle(SELECTION_RULE_PROGRESSION.filter(item => item !== "random"))[0]
     : configuredMode;
@@ -2129,6 +2161,7 @@ function describeSmiley(smiley) {
 function beginDrag(event, node) {
   event.preventDefault();
   if (isCelebrating()) return;
+  if (state.phase === "transitioning") return;
   if (state.phase === "implicit" && state.implicitDemoInProgress) return;
   if (state.phase === "statistics" && state.statisticsStep === "average-only") {
     beginAverageSmileyDrag(event, node);
@@ -2138,7 +2171,8 @@ function beginDrag(event, node) {
   if (state.dragging) {
     cancelActiveDrag();
   }
-  if (state.smileyDrags.size >= 4 || [...state.smileyDrags.values()].some(drag => drag.id === node.dataset.id)) return;
+  const dragLimit = isGuidedSelectionRound() ? 1 : 4;
+  if (state.smileyDrags.size >= dragLimit || [...state.smileyDrags.values()].some(drag => drag.id === node.dataset.id)) return;
   cleanupStrandedDragNodes();
   playInteractionSound("pickup");
   const previousRects = collectSmileyRects();
@@ -2315,6 +2349,34 @@ function moveDrag(event) {
   previewOrderingDrag(drag, resolvedDrop.x, resolvedDrop.y);
 }
 
+function isGuidedSelectionRound() {
+  return state.phase === "selection"
+    && !state.selectionTutorialSkipped
+    && ["and", "or"].includes(state.selectionSourceRule?.type);
+}
+
+function toggleSelectionMode() {
+  if (state.phase !== "selection") return;
+  const enterPlayMode = !isSelectionPlayMode();
+  state.selectionTutorialSkipped = enterPlayMode;
+  state.selectionLevel = enterPlayMode ? SELECTION_RULE_PROGRESSION.length : 1;
+  state.selectionCleanWins = 0;
+  const previousRects = collectSmileyRects();
+  state.smileys.forEach(smiley => {
+    smiley.zone = smiley.sourceZone;
+    smiley.placementOrder = smiley.originalOrder;
+  });
+  state.selectionSourceRule = chooseSelectionSourceRule();
+  state.selectionSourceZone = state.selectionSourceRule.zone || null;
+  renderSelectionHint();
+  renderSmileys();
+  animateSmileysFrom(previousRects, null, "fast");
+}
+
+function isSelectionPlayMode() {
+  return state.selectionTutorialSkipped || state.selectionLevel >= SELECTION_RULE_PROGRESSION.length;
+}
+
 function getDraggedSmileyCenter(drag, fallbackX, fallbackY) {
   const rect = drag?.node?.getBoundingClientRect();
   if (!rect) return { x: fallbackX, y: fallbackY };
@@ -2364,6 +2426,18 @@ function endDrag(event) {
     ? dropZone.dataset.zone
     : null;
   const smiley = state.smileys.find(item => item.id === drag.id);
+  if (dropZone && smiley && shouldRejectGuidedSelectionDrop(smiley, dropZone.dataset.zone)) {
+    const returnRects = new Map([[smiley.id, drag.node.getBoundingClientRect()]]);
+    restoreDraggedSmiley(smiley, drag);
+    cleanupDrag(drag);
+    renderSmileys();
+    renderSelectionFeedback();
+    animateSmileysFrom(returnRects, null, "fast");
+    markRejectedSmiley(smiley.id);
+    state.selectionHadMistake = true;
+    playInteractionSound("return");
+    return;
+  }
   if (dropZone && smiley && shouldRejectPairCombinationDrop(smiley, dropZone.dataset.zone)) {
     const returnRects = new Map([[smiley.id, drag.node.getBoundingClientRect()]]);
     restoreDraggedSmiley(smiley, drag);
@@ -2393,10 +2467,18 @@ function endDrag(event) {
   playInteractionSound(dropZone && smiley ? "drop" : "return");
   cleanupDrag(drag);
   renderSmileys();
+  if (state.phase === "selection") renderSelectionFeedback();
   animateSmileysFrom(previousRects, null, "fast");
   if (carrollDropZone) {
     pulseCarrollCrossHighlight(carrollDropZone);
   }
+}
+
+function shouldRejectGuidedSelectionDrop(smiley, zone) {
+  return isGuidedSelectionRound()
+    && state.selectionSourceRule?.type === "or"
+    && zone === "selection-target"
+    && !matchesSelectionRule(smiley);
 }
 
 function shouldRejectPairCombinationDrop(smiley, zone) {
@@ -5677,6 +5759,12 @@ function startSelectionPhase(previousRects = null) {
 function renderSelectionHint() {
   renderSelectionCaption();
   els.selectionTargetZone.replaceChildren();
+  renderSelectionFeedback();
+  const modeToggle = document.querySelector("#selectionSkipTutorialButton");
+  const playMode = isSelectionPlayMode();
+  modeToggle?.classList.toggle("is-play-mode", playMode);
+  modeToggle?.setAttribute("aria-pressed", String(playMode));
+  modeToggle?.setAttribute("aria-label", playMode ? "Play mode. Switch to tutorial mode" : "Tutorial mode. Switch to play mode");
 }
 
 function renderSelectionCaption() {
@@ -5694,9 +5782,61 @@ function createSelectionIconGroup(group) {
   const wrapper = document.createElement("span");
   wrapper.className = "selection-icon-group";
   group.forEach(({ feature, expected }) => {
-    wrapper.append(createFeatureIcon(feature, !expected));
+    const category = document.createElement("span");
+    category.className = "selection-feature-with-marker";
+    category.append(createFeatureIcon(feature, !expected));
+    const marker = document.createElement("span");
+    marker.className = "selection-feature-marker";
+    marker.setAttribute("aria-hidden", "true");
+    category.append(marker);
+    wrapper.append(category);
   });
   return wrapper;
+}
+
+function renderSelectionFeedback() {
+  if (state.phase !== "selection") return;
+  const rule = state.selectionSourceRule;
+  const wrappers = [...els.selectionCaption.querySelectorAll(".selection-icon-group")];
+  wrappers.forEach(wrapper => {
+    wrapper.classList.remove("is-violated", "is-complete");
+    wrapper.querySelectorAll(".selection-feature-with-marker").forEach(category => {
+      category.classList.remove("is-violated", "is-complete");
+    });
+  });
+  if (!rule || !["and", "or"].includes(rule.type)) return;
+
+  const selected = state.smileys.filter(smiley => smiley.zone === "selection-target");
+  if (rule.type === "and") {
+    const wrapper = wrappers[0];
+    let hasViolation = false;
+    rule.checks.forEach((check, index) => {
+      const violated = selected.some(smiley => Boolean(check.feature.get(smiley)) !== check.expected);
+      wrapper?.querySelectorAll(".selection-feature-with-marker")[index]?.classList.toggle("is-violated", violated);
+      hasViolation ||= violated;
+    });
+    wrapper?.classList.toggle("is-violated", hasViolation);
+    if (hasViolation) restartSelectionAnimation(wrapper, "is-wiggling");
+    return;
+  }
+
+  rule.displayGroups.forEach((group, index) => {
+    const matching = state.smileys.filter(smiley =>
+      group.every(({ feature, expected }) => Boolean(feature.get(smiley)) === expected)
+    );
+    const complete = matching.length > 0 && matching.every(smiley => smiley.zone === "selection-target");
+    const wrapper = wrappers[index];
+    if (!wrapper || !complete) return;
+    wrapper.classList.add("is-complete");
+    wrapper.querySelector(".selection-feature-with-marker")?.classList.add("is-complete");
+    restartSelectionAnimation(wrapper, "is-happy");
+  });
+}
+
+function restartSelectionAnimation(node, className) {
+  if (!node || node.classList.contains(className)) return;
+  node.classList.add(className);
+  node.addEventListener("animationend", () => node.classList.remove(className), { once: true });
 }
 
 function createSelectionConnector() {
@@ -5715,7 +5855,7 @@ function validateSelection() {
   if (isCorrect) {
     recordSelectionProgress(!state.selectionHadMistake);
     resetMistakeCounter();
-    finishSet(collectSmileyRects());
+    finishSelectionCycle();
     return;
   }
 
@@ -6367,6 +6507,9 @@ function recordSelectionProgress(clean) {
   if (state.selectionCleanWins >= 3) {
     state.selectionLevel += 1;
     state.selectionCleanWins = 0;
+    if (state.selectionLevel >= SELECTION_RULE_PROGRESSION.length) {
+      state.selectionTutorialSkipped = true;
+    }
   }
 }
 
@@ -6774,6 +6917,186 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
       els.workPanel.classList.remove("criteria-wiggling");
     }, finalWiggleStartDelay + CATEGORY_WIGGLE_MS);
   }
+}
+
+function finishSelectionCycle() {
+  clearCycleTimers();
+  state.phase = "transitioning";
+  lockSubmitButton();
+  if (state.setCycle + 1 < state.reuseGoal) {
+    finishReusableSelectionTask();
+  } else {
+    finishSelectionRoom();
+  }
+}
+
+function returnSelectionSmileysToVenn() {
+  const moving = state.smileys
+    .filter(smiley => smiley.zone !== smiley.sourceZone)
+    .map(smiley => {
+      const node = document.querySelector(`[data-id="${CSS.escape(smiley.id)}"]`);
+      return node ? { smiley, node, startRect: node.getBoundingClientRect(), placeholder: null } : null;
+    })
+    .filter(Boolean);
+  const movingById = new Map(moving.map(item => [item.smiley.id, item]));
+
+  moving.forEach(({ node, startRect }) => {
+    Object.assign(node.style, {
+      position: "fixed",
+      left: `${startRect.left}px`,
+      top: `${startRect.top}px`,
+      width: `${startRect.width}px`,
+      height: `${startRect.height}px`,
+      margin: "0",
+      transform: "none",
+      transition: "none",
+      zIndex: "70"
+    });
+    node.classList.add("is-selection-returning");
+    document.body.append(node);
+  });
+
+  state.smileys.forEach(smiley => {
+    smiley.zone = smiley.sourceZone;
+    smiley.placementOrder = smiley.originalOrder;
+  });
+  [...state.smileys]
+    .sort((first, second) => first.originalOrder - second.originalOrder)
+    .forEach(smiley => {
+      const movingItem = movingById.get(smiley.id);
+      if (movingItem) {
+        const placeholder = document.createElement("span");
+        placeholder.className = "selection-return-placeholder";
+        placeholder.setAttribute("aria-hidden", "true");
+        movingItem.placeholder = placeholder;
+        getZoneElement(smiley.sourceZone)?.append(placeholder);
+        return;
+      }
+      const node = document.querySelector(`[data-id="${CSS.escape(smiley.id)}"]`);
+      const zone = getZoneElement(smiley.sourceZone);
+      if (node && zone) zone.append(node);
+    });
+  clearDropMarks();
+
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+    moving.forEach(({ node, placeholder }) => {
+      if (!placeholder?.isConnected) return;
+      const targetRect = placeholder.getBoundingClientRect();
+      node.style.transition = "left 2340ms cubic-bezier(0.45, 0, 0.55, 1), top 2340ms cubic-bezier(0.45, 0, 0.55, 1)";
+      node.style.left = `${targetRect.left}px`;
+      node.style.top = `${targetRect.top}px`;
+      const finishReturn = event => {
+        if (event.propertyName !== "top" || !placeholder.isConnected) return;
+        node.removeEventListener("transitionend", finishReturn);
+        placeholder.replaceWith(node);
+        node.classList.remove("is-selection-returning");
+        node.removeAttribute("style");
+      };
+      node.addEventListener("transitionend", finishReturn);
+    });
+  }));
+}
+
+function finishReusableSelectionTask() {
+  returnSelectionSmileysToVenn();
+  const returnedAt = SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS;
+
+  scheduleCycleTimer(() => els.workPanel.classList.add("selection-rule-wiggling"), returnedAt);
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("selection-rule-wiggling");
+    els.workPanel.classList.add("selection-rule-fading-out");
+  }, returnedAt + CATEGORY_WIGGLE_MS);
+  scheduleCycleTimer(() => {
+    state.setCycle += 1;
+    state.selectionSourceRule = chooseSelectionSourceRule();
+    state.selectionSourceZone = state.selectionSourceRule.zone || null;
+    state.selectionHadMistake = false;
+    renderSelectionHint();
+    setHeader("Select", `${state.setCycle + 1} of ${state.reuseGoal}`);
+    els.workPanel.classList.remove("selection-rule-fading-out");
+    els.workPanel.classList.add("selection-rule-fading-in");
+  }, returnedAt + CATEGORY_WIGGLE_MS + SUCCESS_CATEGORY_FADE_OUT_MS);
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("selection-rule-fading-in");
+    els.workPanel.classList.add("selection-rule-wiggling");
+  }, returnedAt + CATEGORY_WIGGLE_MS + SUCCESS_CATEGORY_FADE_OUT_MS + SUCCESS_CATEGORY_FADE_IN_MS);
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("selection-rule-wiggling");
+    state.phase = "selection";
+    unlockSubmitButton();
+  }, returnedAt + (CATEGORY_WIGGLE_MS * 2) + SUCCESS_CATEGORY_FADE_OUT_MS + SUCCESS_CATEGORY_FADE_IN_MS);
+}
+
+function finishSelectionRoom() {
+  els.workPanel.classList.add("is-celebrating", "smileys-wiggling");
+  celebrateCycle(CYCLE_CELEBRATION_MS);
+
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("smileys-wiggling");
+    returnSelectionSmileysToVenn();
+  }, CYCLE_CELEBRATION_MS);
+
+  const returnedAt = CYCLE_CELEBRATION_MS + SUCCESS_SMILEY_RETURN_MS + SMILEY_RETURN_SETTLE_MS;
+  scheduleCycleTimer(() => {
+    markDepartingRoomSmileys();
+    els.workPanel.classList.add("smileys-exiting", "selection-rule-held-hidden");
+  }, returnedAt);
+
+  const exitedAt = returnedAt + ROOM_EXIT_MS;
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.add("selection-venn-fading-out");
+  }, exitedAt);
+
+  scheduleCycleTimer(() => startNextSelectionRoom(), exitedAt + SUCCESS_CATEGORY_FADE_OUT_MS);
+}
+
+function startNextSelectionRoom() {
+  const previousRects = collectSmileyRects();
+  const nextCount = Math.min(7, randomCountDifferentFrom(state.requestedCount));
+  const setup = makeVennSetForCount(getSelectionCriterionCount(), nextCount, state.smileys);
+  state.requestedCount = nextCount;
+  state.activeVennCriteria = setup.criteria;
+  state.smileys = setup.smileys.map(smiley => {
+    const zone = getVennZoneForSmiley(smiley, setup.criteria);
+    return { ...smiley, zone, sourceZone: zone };
+  });
+  state.setCycle = 0;
+  state.reuseGoal = getReuseGoal("selection");
+  state.selectionSourceRule = chooseSelectionSourceRule();
+  state.selectionSourceZone = state.selectionSourceRule.zone || null;
+  state.selectionHadMistake = false;
+  renderVennHeadlines();
+  els.vennStage.classList.toggle("two-circle", state.activeVennCriteria.length <= 2);
+  renderSelectionHint();
+  renderSmileys();
+  setHeader("Select", `1 of ${state.reuseGoal}`);
+  els.workPanel.classList.remove("smileys-exiting", "selection-venn-fading-out");
+  els.workPanel.classList.add("cycle-fading-in", "selection-venn-fading-in");
+  animateSmileysFrom(previousRects, null, "cycle");
+
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("selection-venn-fading-in");
+    els.workPanel.classList.add("selection-venn-wiggling");
+  }, CYCLE_ENTER_MS);
+  scheduleCycleTimer(() => els.workPanel.classList.remove("selection-venn-wiggling"), CYCLE_ENTER_MS + CATEGORY_WIGGLE_MS);
+  scheduleCycleTimer(() => els.workPanel.classList.remove("cycle-fading-in"), CYCLE_ENTER_MS);
+
+  const reorderedAt = SUCCESS_SMILEY_RETURN_MS;
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("selection-rule-held-hidden", "is-celebrating");
+    els.workPanel.classList.add("selection-rule-fading-in", "selection-box-highlight");
+  }, reorderedAt);
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("selection-rule-fading-in");
+    els.workPanel.classList.add("selection-rule-wiggling");
+  }, reorderedAt + SUCCESS_CATEGORY_FADE_IN_MS);
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("selection-rule-wiggling", "selection-box-highlight");
+    state.enteringSmileyIds = [];
+    state.departingSmileyIds = [];
+    state.phase = "selection";
+    unlockSubmitButton();
+  }, reorderedAt + SUCCESS_CATEGORY_FADE_IN_MS + CATEGORY_WIGGLE_MS);
 }
 
 function createCategoryTransitionGhosts() {
