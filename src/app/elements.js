@@ -21,6 +21,7 @@ export const els = {
   permutationMissionButton: document.querySelector("#permutationMissionButton"),
   pairCombinationMissionButton: document.querySelector("#pairCombinationMissionButton"),
   selectionMissionButton: document.querySelector("#selectionMissionButton"),
+  teamMissionButton: document.querySelector("#teamMissionButton"),
   creatorMissionButton: document.querySelector("#creatorMissionButton"),
   vennMissionButton: document.querySelector("#vennMissionButton"),
   nestedMissionButton: document.querySelector("#nestedMissionButton"),
@@ -88,6 +89,12 @@ export const els = {
   pairCaptureZone: document.querySelector("#pairCaptureZone"),
   pairAlbumPages: document.querySelector("#pairAlbumPages"),
   pairCameraButton: document.querySelector("#pairCameraButton"),
+  teamPanel: document.querySelector("#teamPanel"),
+  teamTitle: document.querySelector("#teamTitle"),
+  teamSourceZone: document.querySelector("#teamSourceZone"),
+  teamCaptureZone: document.querySelector("#teamCaptureZone"),
+  teamAlbumPages: document.querySelector("#teamAlbumPages"),
+  teamCameraButton: document.querySelector("#teamCameraButton"),
   selectionPanel: document.querySelector("#selectionPanel"),
   selectionStage: document.querySelector("#selectionStage"),
   selectionCaption: document.querySelector("#selectionCaption"),
@@ -168,6 +175,8 @@ export function getAllDropContainers() {
     els.pairSourceA,
     els.pairSourceB,
     els.pairCaptureZone,
+    els.teamSourceZone,
+    els.teamCaptureZone,
     els.carrollWithWithZone,
     els.carrollWithoutWithZone,
     els.carrollWithWithoutZone,
@@ -201,6 +210,8 @@ export function getZoneElement(zone) {
   if (zone === "pair-source-a") return els.pairSourceA;
   if (zone === "pair-source-b") return els.pairSourceB;
   if (zone === "pair-capture") return els.pairCaptureZone;
+  if (zone === "team-source") return els.teamSourceZone;
+  if (zone === "team-capture") return els.teamCaptureZone;
   if (zone.startsWith("statistics-beard-")) return document.querySelector(`[data-zone="${CSS.escape(zone)}"]`);
   if (zone === "permutation-order") return els.permutationOrderZone;
   if (zone === "with") return els.withZone;

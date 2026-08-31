@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=creator-fixed-grid-v243-20260831">
+    <link rel="stylesheet" href="styles.css?v=average-smooth-transition-v258-20260831">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -124,14 +124,17 @@
               <span class="mission-word" aria-hidden="true">Select</span>
             </button>
             <button class="mission-choice simple-compare-mission" type="button" id="simpleCompareMissionButton" aria-label="Easy Compare two smileys">
-              <span class="compare-sketch" aria-hidden="true">
-                <span></span><strong><span class="relation-symbol-legacy">V</span><span class="relation-pair-icon is-same"><i></i><i></i></span></strong><span></span>
+              <span class="easy-compare-sketch" aria-hidden="true">
+                <span class="easy-compare-face"><i></i></span>
+                <strong>=</strong>
+                <span class="easy-compare-face is-square"><i></i></span>
               </span>
               <span class="mission-word" aria-hidden="true">Easy Compare</span>
             </button>
             <button class="mission-choice compare-mission" type="button" id="compareMissionButton" aria-label="Compare two smileys">
-              <span class="compare-sketch" aria-hidden="true">
-                <span></span><strong><span class="relation-symbol-legacy">=</span><span class="relation-pair-icon is-different"><i></i><i></i></span></strong><span></span>
+              <span class="compare-board-sketch" aria-hidden="true">
+                <span class="compare-board-heading"><strong>=</strong><strong>≠</strong></span>
+                <span class="compare-board-cells"><i></i><i></i><i></i><i></i></span>
               </span>
               <span class="mission-word" aria-hidden="true">Compare</span>
             </button>
@@ -193,6 +196,14 @@
                 <span></span><span></span><strong>?</strong>
               </span>
               <span class="mission-word" aria-hidden="true">Counting</span>
+            </button>
+            <button class="mission-choice team-mission" type="button" id="teamMissionButton" aria-label="Choose teams">
+              <span class="team-sketch" aria-hidden="true">
+                <span class="team-photo-face is-yellow"><i></i></span>
+                <span class="team-photo-face is-red"><i></i></span>
+                <span class="team-photo-face is-square"><i></i></span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Teams</span>
             </button>
           </div>
         </div>
@@ -316,6 +327,16 @@
             </button>
           </div>
           <div class="album-pages" id="pairAlbumPages" aria-label="Pair combination photos"></div>
+        </div>
+
+        <div class="team-panel hidden" id="teamPanel">
+          <div class="permutation-head"><h2 class="panel-title" id="teamTitle">Choose a team</h2></div>
+          <div class="permutation-source-zone team-source-zone" id="teamSourceZone" data-zone="team-source" aria-label="Smileys available for the team"></div>
+          <div class="permutation-capture-row">
+            <div class="permutation-order-zone team-capture-zone" id="teamCaptureZone" data-zone="team-capture" aria-label="Place the chosen team here"></div>
+            <button class="camera-button" type="button" id="teamCameraButton" aria-label="Take a picture of this team" disabled><span aria-hidden="true"></span></button>
+          </div>
+          <div class="album-pages team-album-pages" id="teamAlbumPages" aria-label="Team pictures"></div>
         </div>
 
         <div class="creator-panel hidden" id="creatorPanel">
@@ -515,6 +536,6 @@
         document.body.append(notice);
       }
     </script>
-    <script type="module" src="app.js?v=selection-play-multidrag-v242-20260831"></script>
+    <script type="module" src="app.js?v=average-smooth-transition-v258-20260831"></script>
   </body>
 </html>

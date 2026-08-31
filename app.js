@@ -21,9 +21,9 @@ import {
   makeStatisticsCoinSmileys,
 } from "./src/core/statistics.js";
 import { shuffle, triadKey } from "./src/core/utils.js";
-import { els, getAllDropContainers, getZoneElement } from "./src/app/elements.js?v=room-memory-v113-20260808";
+import { els, getAllDropContainers, getZoneElement } from "./src/app/elements.js?v=team-menu-fix-v248-20260831";
 import { setHeader, setProgress } from "./src/app/header.js";
-import { state } from "./src/app/state.js?v=select-tutorial-v234-20260830";
+import { state } from "./src/app/state.js?v=team-menu-fix-v248-20260831";
 
 const vennLightingStates = new WeakMap();
 // "all" lights every region inside the hovered circle.
@@ -33,6 +33,7 @@ const ROOM_EXIT_MS = 4000;
 const ROOM_REORDER_MS = 760;
 const SMILEY_RETURN_SETTLE_MS = 120;
 const SUCCESS_SMILEY_RETURN_MS = 2400;
+const TEAM_PROGRESSION = [[2, 3], [2, 4], [3, 4], [3, 5], [2, 5]];
 const SUCCESS_CATEGORY_FADE_OUT_MS = 400;
 const SUCCESS_CATEGORY_FADE_IN_MS = 440;
 const CATEGORY_WIGGLE_MS = 800;
@@ -61,6 +62,7 @@ function init() {
   state.synchronizedCategorizationCriteria ??= [];
   state.submitMistakeStreak ??= 0;
   state.selectionTutorialSkipped ??= false;
+  state.relationDisplayMode ??= "symbolic";
   ["gesturestart", "gesturechange", "gestureend"].forEach(type => {
     document.addEventListener(type, event => {
       if (state.smileyDrags.size) event.preventDefault();
@@ -83,6 +85,7 @@ function init() {
   els.simpleCompareMissionButton.addEventListener("click", () => startSimpleCompareMission());
   els.permutationMissionButton.addEventListener("click", () => startPermutationMission());
   els.pairCombinationMissionButton.addEventListener("click", () => startPairCombinationMission());
+  els.teamMissionButton?.addEventListener("click", () => startTeamMission());
   els.selectionMissionButton.addEventListener("click", () => startSelectionMission());
   document.querySelector("#selectionSkipTutorialButton")?.addEventListener("click", toggleSelectionMode);
   els.creatorMissionButton.addEventListener("click", () => startCreatorMission());
@@ -94,11 +97,13 @@ function init() {
   (els.averageMissionButton || document.querySelector("#averageMissionButton"))?.addEventListener("click", () => startAverageMission());
   els.cameraButton.addEventListener("click", () => capturePermutationPhoto());
   els.pairCameraButton.addEventListener("click", () => capturePairCombinationPhoto());
+  els.teamCameraButton?.addEventListener("click", () => captureTeamPhoto());
   els.creatorConfirmButton.addEventListener("click", () => validateCreatorCurrent());
   els.creatorResetButton.addEventListener("click", () => resetCreatorCurrent());
   els.implicitAHead.addEventListener("click", () => openImplicitChoiceList(0));
   els.implicitBHead.addEventListener("click", () => openImplicitChoiceList(1));
   setupVennLighting();
+  setupRelationDisplayMode();
   setupSettingsMenu();
   setupVennMotionLab();
   if (els.newSetButton) {
@@ -1148,6 +1153,54 @@ function startPairCombinationMission(clearPendingTimers = true) {
   startPairCombinationPhase();
 }
 
+function startTeamMission(clearPendingTimers = true, advance = false) {
+  if (clearPendingTimers) {
+    clearCycleTimers();
+    state.teamLevel = 0;
+  } else if (advance) {
+    state.teamLevel = (state.teamLevel + 1) % TEAM_PROGRESSION.length;
+  }
+  const [teamSize, poolSize] = TEAM_PROGRESSION[state.teamLevel];
+  const previousIds = new Set(state.smileys.map(smiley => smiley.id));
+  state.mission = "team";
+  state.phase = "team";
+  state.requestedCount = poolSize;
+  state.nextPlacementOrder = poolSize;
+  state.smileys = clearPendingTimers
+    ? makeSmileys(poolSize, featureCountForSmileyCount(poolSize))
+    : resizeTeamPool(poolSize);
+  state.enteringSmileyIds = clearPendingTimers
+    ? []
+    : state.smileys.filter(smiley => !previousIds.has(smiley.id)).map(smiley => smiley.id);
+  state.smileys.forEach((smiley, index) => {
+    smiley.zone = "team-source";
+    smiley.originalOrder = index;
+    smiley.placementOrder = index;
+  });
+  state.teamAlbum = [];
+  state.teamHadMistake = false;
+  resetMistakeCounter();
+  els.setupPanel.classList.add("hidden");
+  els.workPanel.classList.remove("hidden", "cycle-fading-out");
+  els.backButton.classList.remove("hidden");
+  startTeamPhase();
+}
+
+function resizeTeamPool(poolSize) {
+  const current = [...state.smileys].sort((first, second) => first.originalOrder - second.originalOrder);
+  if (current.length >= poolSize) return current.slice(0, poolSize);
+
+  const used = new Set(current.map(smileyCombinationKey));
+  const additions = shuffle(makeAllSmileyCombinations())
+    .filter(smiley => !used.has(smileyCombinationKey(smiley)))
+    .slice(0, poolSize - current.length)
+    .map((smiley, index) => ({
+      ...smiley,
+      id: `team-smiley-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`
+    }));
+  return [...current, ...additions];
+}
+
 function startSelectionMission(clearPendingTimers = true, count = getDefaultSmileyCount()) {
   count = Math.min(7, count);
   const rememberedSmileys = clearPendingTimers ? getRememberedRoom("selection", count) : [];
@@ -2048,6 +2101,7 @@ function renderSmileys(excludedId = null) {
   ]);
   cleanupStrandedDragNodes();
   els.pairCombinationPanel?.classList.toggle("hidden", state.phase !== "pair-combination");
+  els.teamPanel?.classList.toggle("hidden", state.phase !== "team");
   getAllDropContainers().forEach(zone => zone.replaceChildren());
   getSmileysInRenderOrder().forEach(smiley => {
     if (excludedIds.has(smiley.id)) {
@@ -2074,6 +2128,7 @@ function renderSmileys(excludedId = null) {
   if (!excludedId && state.phase === "pair-combination") {
     updatePairCombinationCameraState();
   }
+  if (!excludedId && state.phase === "team") updateTeamCameraState();
 }
 
 function createOrderPlaceholder() {
@@ -2114,6 +2169,8 @@ function zoneRank(zone) {
   if (zone.startsWith("implicit")) return 6;
   if (zone === "selection-target") return 6;
   if (zone === "permutation-order") return 7;
+  if (zone === "team-source") return 7;
+  if (zone === "team-capture") return 8;
   return 3;
 }
 
@@ -2128,6 +2185,10 @@ function createSmileyNode(smiley) {
   node.classList.toggle("has-ears", smiley.ears);
   node.classList.toggle("counting-dull", state.phase === "counting");
   node.classList.toggle("is-cycle-entering", state.enteringSmileyIds?.includes(smiley.id) === true);
+  if (state.phase === "team" && smiley.zone === "team-source") {
+    const [teamSize] = TEAM_PROGRESSION[state.teamLevel];
+    node.disabled = getCurrentTeam().length >= teamSize;
+  }
   if (Number.isInteger(smiley.beardLevel)) {
     node.classList.add("has-beard", `beard-${smiley.beardLevel}`);
     const beard = document.createElement("span");
@@ -2162,6 +2223,11 @@ function beginDrag(event, node) {
   event.preventDefault();
   if (isCelebrating()) return;
   if (state.phase === "transitioning") return;
+  if (state.phase === "team") {
+    const smiley = state.smileys.find(item => item.id === node.dataset.id);
+    const [teamSize] = TEAM_PROGRESSION[state.teamLevel];
+    if (smiley?.zone === "team-source" && getCurrentTeam().length >= teamSize) return;
+  }
   if (state.phase === "implicit" && state.implicitDemoInProgress) return;
   if (state.phase === "statistics" && state.statisticsStep === "average-only") {
     beginAverageSmileyDrag(event, node);
@@ -2453,6 +2519,17 @@ function endDrag(event) {
     playInteractionSound("return");
     return;
   }
+  if (dropZone && smiley && shouldRejectTeamDrop(smiley, dropZone.dataset.zone)) {
+    const returnRects = new Map([[smiley.id, drag.node.getBoundingClientRect()]]);
+    restoreDraggedSmiley(smiley, drag);
+    cleanupDrag(drag);
+    renderSmileys();
+    animateSmileysFrom(returnRects, null, "fast");
+    markRejectedSmiley(smiley.id);
+    state.teamHadMistake = true;
+    playInteractionSound("return");
+    return;
+  }
   if (dropZone && smiley && shouldRejectImplicitDrop(smiley, dropZone.dataset.zone)) {
     const returnRects = new Map([[smiley.id, drag.node.getBoundingClientRect()]]);
     restoreDraggedSmiley(smiley, drag);
@@ -2498,6 +2575,13 @@ function shouldRejectPairCombinationDrop(smiley, zone) {
     return zone !== `pair-source-${smiley.pairSource}`;
   }
   return false;
+}
+
+function shouldRejectTeamDrop(smiley, zone) {
+  if (state.phase !== "team") return false;
+  if (!["team-source", "team-capture"].includes(zone)) return true;
+  const [teamSize] = TEAM_PROGRESSION[state.teamLevel];
+  return zone === "team-capture" && smiley.zone !== "team-capture" && getCurrentTeam().length >= teamSize;
 }
 
 function shouldRejectImplicitDrop(smiley, zone) {
@@ -2842,7 +2926,7 @@ function pulseCarrollCrossHighlight(zone) {
 }
 
 function getDropTarget(x, y) {
-  if (state.phase === "ordering" || state.phase === "permutation" || state.phase === "pair-combination" || (state.phase === "statistics" && state.statisticsStep === "beard-ranking")) {
+  if (state.phase === "ordering" || state.phase === "permutation" || state.phase === "pair-combination" || state.phase === "team" || (state.phase === "statistics" && state.statisticsStep === "beard-ranking")) {
     const orderZone = getActiveOrderZone();
     if (isPointInsideElement(orderZone, x, y)) return orderZone;
     if (isPointInsideElement(els.tray, x, y)) return els.tray;
@@ -2893,6 +2977,9 @@ function getDropTarget(x, y) {
   }
   if (state.phase === "pair-combination") {
     return element.closest(".pair-capture-zone, .permutation-source-zone");
+  }
+  if (state.phase === "team") {
+    return element.closest(".team-capture-zone, .team-source-zone");
   }
   if (state.phase === "carroll") {
     return element.closest(".carroll-zone, .smiley-tray");
@@ -2968,6 +3055,10 @@ function validateCurrentPhase(skipCountOffer = false) {
     if (state.pairCombinationAlbum.length >= getPairCombinationGoal()) {
       completePairCombinationAlbum();
     }
+    return;
+  }
+  if (state.phase === "team") {
+    if (state.teamAlbum.length >= getTeamGoal()) completeTeamAlbum();
     return;
   }
   if (state.phase === "selection") {
@@ -3665,17 +3756,65 @@ function resetPermutationState() {
 }
 
 function createRelationIcon(relation) {
-  if (!USE_VISUAL_RELATION_ICONS) {
+  if (state.relationDisplayMode === "words") {
+    const word = document.createElement("span");
+    word.className = `relation-word ${relation === "different" ? "is-different" : "is-same"}`;
+    word.textContent = relation === "different" ? "Different" : "Same";
+    return word;
+  }
+  if (state.relationDisplayMode !== "iconic") {
     const symbol = document.createElement("span");
     symbol.className = "relation-symbol-legacy";
     symbol.textContent = relation === "different" ? "≠" : "=";
     return symbol;
   }
   const icon = document.createElement("span");
-  icon.className = `relation-pair-icon ${relation === "different" ? "is-different" : "is-same"}`;
+  icon.className = `relation-pair-icon relation-display-icon ${relation === "different" ? "is-different" : "is-same"}`;
   icon.setAttribute("aria-hidden", "true");
   icon.append(document.createElement("i"), document.createElement("i"));
   return icon;
+}
+
+function setupRelationDisplayMode() {
+  renderCompareRelationHeaders();
+}
+
+function renderCompareRelationHeaders() {
+  [...document.querySelectorAll(".compare-symbol-head")].forEach((head, index) => {
+    const relation = index === 0 ? "equal" : "different";
+    head.replaceChildren(createRelationIcon(relation));
+    head.setAttribute("role", "button");
+    head.setAttribute("tabindex", "0");
+    head.setAttribute("title", "Change relation display");
+    head.setAttribute("aria-label", `${relation === "equal" ? "Same" : "Different"}. Change relation display`);
+    if (head.dataset.modeToggleBound === "true") return;
+    head.dataset.modeToggleBound = "true";
+    head.addEventListener("click", cycleRelationDisplayMode);
+    head.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      cycleRelationDisplayMode();
+    });
+  });
+}
+
+function cycleRelationDisplayMode() {
+  const modes = ["iconic", "symbolic", "words"];
+  const currentIndex = modes.indexOf(state.relationDisplayMode);
+  state.relationDisplayMode = modes[(currentIndex + 1) % modes.length];
+  renderCompareRelationHeaders();
+  if (state.phase === "simple-compare") renderSimpleCompare();
+}
+
+function createRelationModeSummary() {
+  const summary = document.createElement("span");
+  summary.className = "relation-mode-summary";
+  const separator = document.createElement("span");
+  separator.className = "relation-mode-separator";
+  separator.textContent = "/";
+  separator.setAttribute("aria-hidden", "true");
+  summary.append(createRelationIcon("equal"), separator, createRelationIcon("different"));
+  return summary;
 }
 
 function markMissingCountInputs(inputs = [...document.querySelectorAll(".count-question-input")]) {
@@ -5156,7 +5295,17 @@ function renderSimpleCompare() {
   });
   const relationHead = document.createElement("div");
   relationHead.className = "simple-compare-head-cell simple-relation-head";
-  relationHead.setAttribute("aria-hidden", "true");
+  relationHead.setAttribute("role", "button");
+  relationHead.setAttribute("tabindex", "0");
+  relationHead.setAttribute("aria-label", "Change relation display");
+  relationHead.setAttribute("title", "Change relation display");
+  relationHead.append(createRelationModeSummary());
+  relationHead.addEventListener("click", cycleRelationDisplayMode);
+  relationHead.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    cycleRelationDisplayMode();
+  });
   els.simpleCompareTable.append(relationHead);
 
   features.forEach(feature => {
@@ -5266,20 +5415,25 @@ function getCompareAnswerForPair(feature, pair) {
 }
 
 function advanceSimpleComparePair() {
-  const previousXs = [...els.simpleCompareTable.querySelectorAll(".simple-mark-button.has-simple-x .simple-icon-x")];
-  previousXs.forEach(node => node.classList.add("simple-x-fade-out"));
+  const answerFadeMs = 360;
+  lockSubmitButton();
   setPairShiftDistance(els.simpleCompareTable, ".simple-face-head .smiley");
-  els.simpleCompareTable.classList.add("simple-pair-shifting");
+  els.simpleCompareTable.classList.add("simple-first-exiting");
   window.setTimeout(() => {
     state.simpleCompareSmileys = makeNextSimpleComparePair();
-    state.simpleCompareMarks = {};
-    els.simpleCompareTable.classList.remove("simple-pair-shifting");
-    els.simpleCompareTable.classList.remove("simple-pair-entering");
-    els.simpleCompareTable.classList.add("simple-pair-entering");
+    els.simpleCompareTable.classList.remove("simple-first-exiting");
+    els.simpleCompareTable.classList.add("simple-pair-reforming");
     renderSimpleCompare();
     window.setTimeout(() => {
-      els.simpleCompareTable.classList.remove("simple-pair-entering");
-      els.simpleCompareTable.style.removeProperty("--pair-shift-x");
+      els.simpleCompareTable.classList.remove("simple-pair-reforming");
+      els.simpleCompareTable.classList.add("simple-answers-fading");
+      window.setTimeout(() => {
+        state.simpleCompareMarks = {};
+        els.simpleCompareTable.classList.remove("simple-answers-fading");
+        renderSimpleCompare();
+        els.simpleCompareTable.style.removeProperty("--pair-shift-x");
+        unlockSubmitButton();
+      }, answerFadeMs);
     }, 1250);
   }, 1250);
 }
@@ -5350,6 +5504,148 @@ function startPairCombinationPhase() {
   lockSubmitButton();
   renderPairCombinationAlbum();
   renderSmileys();
+}
+
+function startTeamPhase() {
+  state.phase = "team";
+  [els.sortTable, els.orderingPanel, els.statisticsPanel, els.carrollPanel, els.comparePanel,
+    els.simpleComparePanel, els.selectionPanel, els.creatorPanel, els.vennPanel,
+    els.implicitPanel, els.countingPanel, els.permutationPanel, els.pairCombinationPanel]
+    .forEach(panel => panel?.classList.add("hidden"));
+  els.teamPanel.classList.remove("hidden");
+  els.tray.replaceChildren();
+  els.trayLabel.textContent = "";
+  const [teamSize, poolSize] = TEAM_PROGRESSION[state.teamLevel];
+  els.teamTitle.textContent = `Choose ${teamSize} from ${poolSize}`;
+  setHeader(`Choose ${teamSize} from ${poolSize}`, `${state.teamAlbum.length} of ${getTeamGoal()}`);
+  els.submitSortButton.textContent = "OK";
+  lockSubmitButton();
+  renderTeamAlbum();
+  renderSmileys();
+}
+
+function getCurrentTeam() {
+  return state.smileys.filter(smiley => smiley.zone === "team-capture");
+}
+
+function getTeamPhotoKey(team = getCurrentTeam()) {
+  return team.map(smiley => smiley.id).sort().join("|");
+}
+
+function updateTeamCameraState() {
+  if (state.phase !== "team") return;
+  const [teamSize] = TEAM_PROGRESSION[state.teamLevel];
+  const team = getCurrentTeam();
+  els.teamCameraButton.disabled = team.length !== teamSize;
+  els.teamCameraButton.title = "";
+}
+
+function captureTeamPhoto() {
+  if (state.phase !== "team") return;
+  const [teamSize] = TEAM_PROGRESSION[state.teamLevel];
+  const team = getCurrentTeam();
+  if (team.length !== teamSize) return;
+  const order = team.map(smiley => smiley.id).sort();
+  const key = getTeamPhotoKey(team);
+  if (state.teamAlbum.some(photo => photo.key === key)) {
+    state.teamHadMistake = true;
+    const previousPhoto = els.teamAlbumPages.querySelector(`.album-photo[data-team-key="${CSS.escape(key)}"]`);
+    if (previousPhoto) {
+      previousPhoto.classList.remove("wiggle");
+      window.requestAnimationFrame(() => previousPhoto.classList.add("wiggle"));
+      previousPhoto.addEventListener("animationend", () => previousPhoto.classList.remove("wiggle"), { once: true });
+    }
+    if (navigator.vibrate) navigator.vibrate(80);
+    return;
+  }
+  const previousRects = collectSmileyRects();
+  state.teamAlbum.push({ key, order });
+  team.forEach(smiley => {
+    smiley.zone = "team-source";
+    smiley.placementOrder = smiley.originalOrder;
+  });
+  renderTeamAlbum();
+  renderSmileys();
+  animateSmileysFrom(previousRects, null, "pair");
+  setProgress(`${state.teamAlbum.length} of ${getTeamGoal()}`);
+  if (state.teamAlbum.length >= getTeamGoal()) {
+    els.teamCameraButton.disabled = true;
+    window.setTimeout(unlockSubmitButton, 720);
+  }
+}
+
+function renderTeamAlbum() {
+  els.teamAlbumPages.replaceChildren();
+  const goal = getTeamGoal();
+  for (let pageIndex = 0; pageIndex < Math.ceil(goal / 6); pageIndex += 1) {
+    const page = document.createElement("div");
+    page.className = "album-page";
+    for (let index = 0; index < 6; index += 1) {
+      const photoIndex = pageIndex * 6 + index;
+      if (photoIndex >= goal) break;
+      const slot = document.createElement("div");
+      slot.className = "album-photo";
+      const photo = state.teamAlbum[photoIndex];
+      if (photo) {
+        slot.classList.add("has-photo");
+        slot.dataset.teamKey = photo.key;
+        photo.order.forEach(smileyId => {
+          const smiley = state.smileys.find(item => item.id === smileyId);
+          if (!smiley) return;
+          const node = createSmileyNode({ ...smiley, id: `team-photo-${photoIndex}-${smiley.id}` });
+          node.classList.add("photo-smiley");
+          slot.append(node);
+        });
+      }
+      page.append(slot);
+    }
+    els.teamAlbumPages.append(page);
+  }
+}
+
+function completeTeamAlbum() {
+  state.phase = "celebrating";
+  els.teamCameraButton.disabled = true;
+  lockSubmitButton();
+  els.workPanel.classList.add("is-celebrating", "smileys-wiggling");
+  celebrateCycle(CYCLE_CELEBRATION_MS);
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("smileys-wiggling");
+    const nextLevel = (state.teamLevel + 1) % TEAM_PROGRESSION.length;
+    const nextPoolSize = TEAM_PROGRESSION[nextLevel][1];
+    state.departingSmileyIds = state.smileys
+      .slice(nextPoolSize)
+      .map(smiley => smiley.id);
+    state.departingSmileyIds.forEach(id => {
+      const node = els.teamSourceZone.querySelector(`[data-id="${CSS.escape(id)}"]`);
+      if (!node) return;
+      node.classList.add("is-cycle-departing");
+      const hand = document.createElement("span");
+      hand.className = "goodbye-hand";
+      hand.textContent = "👋";
+      hand.setAttribute("aria-hidden", "true");
+      node.append(hand);
+    });
+    els.workPanel.classList.add("smileys-exiting");
+  }, CYCLE_CELEBRATION_MS);
+  const nextLevel = (state.teamLevel + 1) % TEAM_PROGRESSION.length;
+  const removesSmileys = TEAM_PROGRESSION[nextLevel][1] < state.smileys.length;
+  const exitDuration = removesSmileys ? ROOM_EXIT_MS : CYCLE_EXIT_MS;
+  scheduleCycleTimer(() => {
+    startTeamMission(false, true);
+    state.departingSmileyIds = [];
+    els.workPanel.classList.remove("is-celebrating", "smileys-exiting");
+    els.workPanel.classList.add("cycle-fading-in");
+  }, CYCLE_CELEBRATION_MS + exitDuration);
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("cycle-fading-in");
+    state.enteringSmileyIds = [];
+  }, CYCLE_CELEBRATION_MS + exitDuration + CYCLE_ENTER_MS);
+}
+
+function getTeamGoal() {
+  const [teamSize, poolSize] = TEAM_PROGRESSION[state.teamLevel];
+  return factorial(poolSize) / (factorial(teamSize) * factorial(poolSize - teamSize));
 }
 
 function renderPairCombinationAlbum() {
@@ -5434,16 +5730,35 @@ function completePairCombinationAlbum() {
   celebrateCycle(CYCLE_CELEBRATION_MS);
   scheduleCycleTimer(() => {
     els.workPanel.classList.remove("smileys-wiggling");
+    markAllCurrentSmileysDeparting();
     els.workPanel.classList.add("smileys-exiting");
   }, CYCLE_CELEBRATION_MS);
   scheduleCycleTimer(() => {
     startPairCombinationMission(false);
+    state.departingSmileyIds = [];
+    state.enteringSmileyIds = state.smileys.map(smiley => smiley.id);
+    renderSmileys();
     els.workPanel.classList.remove("is-celebrating", "smileys-exiting");
     els.workPanel.classList.add("cycle-fading-in");
-  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS);
+  }, CYCLE_CELEBRATION_MS + ROOM_EXIT_MS);
   scheduleCycleTimer(() => {
     els.workPanel.classList.remove("cycle-fading-in");
-  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS + CYCLE_ENTER_MS);
+    state.enteringSmileyIds = [];
+  }, CYCLE_CELEBRATION_MS + ROOM_EXIT_MS + CYCLE_ENTER_MS);
+}
+
+function markAllCurrentSmileysDeparting() {
+  state.departingSmileyIds = state.smileys.map(smiley => smiley.id);
+  state.departingSmileyIds.forEach(id => {
+    const node = els.workPanel.querySelector(`.smiley[data-id="${CSS.escape(id)}"]`);
+    if (!node) return;
+    node.classList.add("is-cycle-departing");
+    const hand = document.createElement("span");
+    hand.className = "goodbye-hand";
+    hand.textContent = "👋";
+    hand.setAttribute("aria-hidden", "true");
+    node.append(hand);
+  });
 }
 
 function getPairCombinationSmileyCount() {
@@ -5693,17 +6008,22 @@ function completePermutationAlbum() {
   celebrateCycle(CYCLE_CELEBRATION_MS);
   scheduleCycleTimer(() => {
     els.workPanel.classList.remove("smileys-wiggling");
+    markAllCurrentSmileysDeparting();
     els.workPanel.classList.add("smileys-exiting");
   }, CYCLE_CELEBRATION_MS);
   scheduleCycleTimer(() => {
     startPermutationMission(false);
+    state.departingSmileyIds = [];
+    state.enteringSmileyIds = state.smileys.map(smiley => smiley.id);
+    renderSmileys();
     els.workPanel.classList.remove("is-celebrating");
     els.workPanel.classList.remove("smileys-exiting");
     els.workPanel.classList.add("cycle-fading-in");
-  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS);
+  }, CYCLE_CELEBRATION_MS + ROOM_EXIT_MS);
   scheduleCycleTimer(() => {
     els.workPanel.classList.remove("cycle-fading-in");
-  }, CYCLE_CELEBRATION_MS + CYCLE_EXIT_MS + CYCLE_ENTER_MS);
+    state.enteringSmileyIds = [];
+  }, CYCLE_CELEBRATION_MS + ROOM_EXIT_MS + CYCLE_ENTER_MS);
 }
 
 function getPermutationOrder() {
@@ -6826,13 +7146,18 @@ function finishSet(previousRects) {
   }
   runNewSmileysCycleTransition(
     () => startNextMissionRound(completedMission),
-    { animateSmileys: shouldAnimateRoomSmileys(completedMission) }
+    {
+      animateSmileys: shouldAnimateRoomSmileys(completedMission),
+      replaceAllSmileys: completedMission === "average",
+      fadeCategories: completedMission !== "average"
+    }
   );
 }
 
 function runNewSmileysCycleTransition(startNextRound, options = {}) {
   const animateSmileys = options.animateSmileys !== false;
   const fadeCategories = options.fadeCategories !== false;
+  const replaceAllSmileys = options.replaceAllSmileys === true;
   const returnHomeDuration = animateSmileys ? SUCCESS_SMILEY_RETURN_MS : 0;
   const returnHomeDelay = animateSmileys ? CYCLE_CELEBRATION_MS : 0;
   const exitStartDelay = returnHomeDelay + returnHomeDuration +
@@ -6860,7 +7185,11 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
     }, returnHomeDelay);
 
     scheduleCycleTimer(() => {
-      markDepartingRoomSmileys();
+      if (replaceAllSmileys) {
+        markAllCurrentSmileysDeparting();
+      } else {
+        markDepartingRoomSmileys();
+      }
       els.workPanel.classList.add("smileys-exiting");
     }, exitStartDelay);
 
@@ -6877,6 +7206,10 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
     }
     startNextRound();
     state.departingSmileyIds = [];
+    if (replaceAllSmileys) {
+      state.enteringSmileyIds = state.smileys.map(smiley => smiley.id);
+      renderSmileys();
+    }
     els.workPanel.classList.remove("is-celebrating");
     els.workPanel.classList.remove("smileys-wiggling");
     els.workPanel.classList.remove("smileys-exiting");
