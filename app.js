@@ -1170,8 +1170,7 @@ function makeHierarchyChallenge() {
     ...smiley,
     zone: "tray",
     originalOrder: index,
-    placementOrder: index,
-    expectedZone: `hierarchy-node-${state.hierarchyNodes.find(node => node.smileyId === smiley.id).index}`
+    placementOrder: index
   }));
   state.hierarchyHadMistake = false;
 }
@@ -1241,13 +1240,44 @@ function renderHierarchyTree() {
 }
 
 function validateHierarchy() {
-  const wrong = state.smileys.filter(smiley => smiley.zone !== smiley.expectedZone);
-  if (wrong.length) {
+  const placed = new Map([[0, state.hierarchyRoot]]);
+  state.hierarchyNodes.forEach(nodeData => {
+    const smiley = state.smileys.find(item => item.zone === `hierarchy-node-${nodeData.index}`);
+    if (smiley) placed.set(nodeData.index, smiley);
+  });
+  const wrongIds = new Set();
+  const wrongZones = new Set();
+  const signatureOwners = new Map([[hierarchySmileySignature(state.hierarchyRoot), 0]]);
+  state.hierarchyNodes.forEach(nodeData => {
+    const smiley = placed.get(nodeData.index);
+    const parent = placed.get(nodeData.parentIndex);
+    if (!smiley) {
+      wrongZones.add(`hierarchy-node-${nodeData.index}`);
+      return;
+    }
+    const signature = hierarchySmileySignature(smiley);
+    if (signatureOwners.has(signature)) {
+      wrongIds.add(smiley.id);
+      const previousIndex = signatureOwners.get(signature);
+      const previous = placed.get(previousIndex);
+      if (previous?.id) wrongIds.add(previous.id);
+    } else {
+      signatureOwners.set(signature, nodeData.index);
+    }
+    if (!parent || hierarchyDifferenceCount(parent, smiley) !== 1) {
+      wrongIds.add(smiley.id);
+    }
+  });
+  if (wrongIds.size || wrongZones.size) {
     state.hierarchyHadMistake = true;
     state.mistakeStreak += 1;
     signalIncorrect();
-    wrong.forEach(smiley => {
-      const node = document.querySelector(`[data-id="${CSS.escape(smiley.id)}"]`);
+    wrongIds.forEach(id => {
+      const node = document.querySelector(`[data-id="${CSS.escape(id)}"]`);
+      node?.classList.add("mistake-wiggle");
+    });
+    wrongZones.forEach(zone => {
+      const node = document.querySelector(`[data-zone="${CSS.escape(zone)}"]`);
       node?.classList.add("mistake-wiggle");
     });
     return;
@@ -1271,6 +1301,10 @@ function validateHierarchy() {
     els.hierarchyPanel.classList.remove("hierarchy-entering");
     unlockSubmitButton();
   }, 2500);
+}
+
+function hierarchyDifferenceCount(first, second) {
+  return features.filter(feature => Boolean(feature.get(first)) !== Boolean(feature.get(second))).length;
 }
 
 function startStatisticsMission(clearPendingTimers = true) {
@@ -2977,7 +3011,13 @@ function shouldRejectTeamDrop(smiley, zone) {
 
 function shouldRejectHierarchyDrop(smiley, zone) {
   if (state.phase !== "hierarchy" || !zone?.startsWith("hierarchy-node-")) return false;
-  return state.smileys.some(item => item.id !== smiley.id && item.zone === zone);
+  const duplicateInTree = state.smileys.some(item =>
+    item.id !== smiley.id &&
+    item.zone.startsWith("hierarchy-node-") &&
+    hierarchySmileySignature(item) === hierarchySmileySignature(smiley)
+  );
+  const duplicatesRoot = hierarchySmileySignature(state.hierarchyRoot) === hierarchySmileySignature(smiley);
+  return duplicatesRoot || duplicateInTree || state.smileys.some(item => item.id !== smiley.id && item.zone === zone);
 }
 
 function shouldRejectImplicitDrop(smiley, zone) {
