@@ -1158,6 +1158,9 @@ function makeHierarchyChallenge() {
     if (valid) rawNodes = candidateNodes;
   }
   if (!rawNodes) throw new Error("Could not create a unique hierarchy tree");
+  if (new Set(rawNodes.map(hierarchySmileySignature)).size !== rawNodes.length) {
+    throw new Error("Hierarchy tree contains duplicate smileys");
+  }
   state.hierarchySeenRoots.push(hierarchySmileySignature(rawNodes[0]));
   const playable = makePlayableSmileys(rawNodes);
   state.hierarchyRoot = playable[0];
@@ -1272,13 +1275,14 @@ function validateHierarchy() {
     state.hierarchyHadMistake = true;
     state.mistakeStreak += 1;
     signalIncorrect();
-    wrongIds.forEach(id => {
-      const node = document.querySelector(`[data-id="${CSS.escape(id)}"]`);
-      node?.classList.add("mistake-wiggle");
-    });
+    animateUnhappySmileys([...wrongIds]);
     wrongZones.forEach(zone => {
       const node = document.querySelector(`[data-zone="${CSS.escape(zone)}"]`);
-      node?.classList.add("mistake-wiggle");
+      if (!node) return;
+      node.classList.remove("wiggle");
+      node.getBoundingClientRect();
+      node.classList.add("wiggle");
+      node.addEventListener("animationend", () => node.classList.remove("wiggle"), { once: true });
     });
     return;
   }
@@ -3578,6 +3582,7 @@ function resetMistakeCounter() {
   state.mistakeStreak = 0;
   state.submitMistakeStreak = 0;
   state.returnAfterErrorPending = false;
+  els.workPanel?.querySelectorAll(".mistake-wiggle").forEach(node => node.classList.remove("mistake-wiggle"));
   if (state.returnAfterErrorTimer) {
     window.clearTimeout(state.returnAfterErrorTimer);
     state.returnAfterErrorTimer = null;
