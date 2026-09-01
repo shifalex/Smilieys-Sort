@@ -1902,10 +1902,27 @@ function showSetup() {
     "selection-venn-wiggling",
     "selection-box-highlight"
   );
-  els.similarityPanel.classList.add("hidden");
-  els.nestedPanel.classList.add("hidden");
-  els.describePanel?.classList.add("hidden");
-  els.hierarchyPanel?.classList.add("hidden");
+  [
+    els.sortTable,
+    els.orderingPanel,
+    els.statisticsPanel,
+    els.carrollPanel,
+    els.comparePanel,
+    els.simpleComparePanel,
+    els.permutationPanel,
+    els.pairCombinationPanel,
+    els.teamPanel,
+    els.selectionPanel,
+    els.creatorPanel,
+    els.vennPanel,
+    els.nestedPanel,
+    els.countingPanel,
+    els.implicitPanel,
+    els.similarityPanel,
+    els.describePanel,
+    els.hierarchyPanel
+  ].forEach(panel => panel?.classList.add("hidden"));
+  getAllDropContainers().forEach(zone => zone.replaceChildren());
   els.actionRow.append(els.submitSortButton);
   state.smileys = [];
   state.activeFeatures = [];
