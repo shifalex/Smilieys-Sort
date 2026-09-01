@@ -7788,6 +7788,20 @@ body:has(.setup-panel:not(.hidden)) .count-check-dialog {
   width: min(100%, 980px);
 }
 
+.describe-choices.describe-round-1 {
+  grid-template-columns: minmax(240px, 360px);
+  justify-content: center;
+}
+
+.describe-choices.describe-round-2 {
+  grid-template-columns: minmax(300px, 620px);
+  justify-content: center;
+}
+
+.describe-choices.describe-round-3 {
+  grid-template-columns: repeat(5, minmax(112px, 1fr));
+}
+
 .describe-category-card {
   display: grid;
   gap: 12px;
@@ -7804,6 +7818,38 @@ body:has(.setup-panel:not(.hidden)) .count-check-dialog {
   justify-content: center;
   gap: 10px;
   min-height: 64px;
+}
+
+.describe-category-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+}
+
+.describe-category-mark {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  color: #ffffff;
+  font-family: Arial, "Helvetica Neue", sans-serif;
+  font-size: 3.5rem;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 2px 0 rgba(23, 32, 42, 0.35), 0 0 5px #ffffff;
+  pointer-events: none;
+}
+
+.describe-category-mark.is-x {
+  color: var(--red);
+}
+
+.describe-category-mark.is-check {
+  color: var(--green);
 }
 
 .describe-category .feature-icon {
@@ -7827,9 +7873,39 @@ body:has(.setup-panel:not(.hidden)) .count-check-dialog {
   border-radius: 14px;
   background: #ffffff;
   color: var(--muted);
-  font-size: 1rem;
+  font-family: Arial, "Helvetica Neue", sans-serif;
+  font-size: 2rem;
   font-weight: 900;
   cursor: pointer;
+}
+
+.describe-icon-answer {
+  width: 100%;
+  min-height: 118px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.describe-round-2 .describe-category {
+  justify-content: flex-start;
+}
+
+.describe-round-2 .describe-category-card {
+  grid-template-columns: minmax(0, 1fr) 180px;
+  align-items: center;
+}
+
+.describe-round-3 .describe-category-card {
+  padding: 8px;
+}
+
+.describe-round-3 .describe-icon-answer {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-height: 126px;
 }
 
 .describe-answer-button:first-child.is-selected {
@@ -7865,6 +7941,8 @@ body:has(.setup-panel:not(.hidden)) .count-check-dialog {
 
 @media (max-width: 700px) {
   .describe-choices { grid-template-columns: 1fr; }
+  .describe-choices.describe-round-3 { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+  .describe-round-2 .describe-category-card { grid-template-columns: 1fr; }
   .describe-panel { padding: 14px 4px; }
 }
 

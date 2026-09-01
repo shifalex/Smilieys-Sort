@@ -947,19 +947,22 @@ function startDescribeMission(clearPendingTimers = true) {
 }
 
 function prepareDescribeRound() {
-  const categoryCount = [1, 2, features.length][state.describeRound] || features.length;
+  const categoryCount = [1, 3, features.length][state.describeRound] || features.length;
   const previousKey = state.describeSmiley ? creatorSmileyKey(state.describeSmiley) : null;
   const candidates = shuffle(makeAllSmileyCombinations())
     .filter(smiley => creatorSmileyKey(smiley) !== previousKey);
   state.describeSmiley = makePlayableSmileys([candidates[0]])[0];
   if (categoryCount === features.length) {
     state.describeFeatures = [...features];
-  } else if (categoryCount === 2) {
+  } else if (categoryCount > 1) {
     const matching = shuffle(features.filter(feature => feature.get(state.describeSmiley)));
     const notMatching = shuffle(features.filter(feature => !feature.get(state.describeSmiley)));
-    state.describeFeatures = matching.length && notMatching.length
-      ? shuffle([matching[0], notMatching[0]])
-      : shuffle(features).slice(0, 2);
+    const contrasting = matching.length && notMatching.length ? [matching[0], notMatching[0]] : [];
+    const contrastingKeys = new Set(contrasting.map(feature => feature.key));
+    const remaining = shuffle(features.filter(feature => !contrastingKeys.has(feature.key)));
+    state.describeFeatures = contrasting.length
+      ? shuffle([...contrasting, ...remaining.slice(0, categoryCount - contrasting.length)])
+      : shuffle(features).slice(0, categoryCount);
   } else {
     state.describeFeatures = shuffle(features).slice(0, 1);
   }
@@ -985,34 +988,62 @@ function startDescribePhase() {
 
 function renderDescribeRound() {
   const prompts = [
-    "Does this category describe the smiley?",
-    "Decide for both categories.",
-    "Decide for every category."
+    "Choose ✓ if the category describes the smiley, or ✕ if it does not.",
+    "Choose ✓ or ✕ for each category.",
+    "Tap every category icon to put ✓ or ✕ on it."
   ];
   els.describePrompt.textContent = prompts[state.describeRound];
   const smileyNode = createSmileyNode({ ...state.describeSmiley, id: `describe-${state.describeSmiley.id}` });
   smileyNode.setAttribute("tabindex", "-1");
   els.describeSmiley.replaceChildren(smileyNode);
   els.describeChoices.replaceChildren();
+  els.describeChoices.className = `describe-choices describe-round-${state.describeRound + 1}`;
   state.describeFeatures.forEach(feature => {
     const card = document.createElement("div");
     card.className = "describe-category-card";
     card.dataset.featureKey = feature.key;
     card.classList.toggle("wiggle", state.describeWrongKeys.includes(feature.key));
-    const category = document.createElement("div");
+    const answer = state.describeAnswers[feature.key];
+    const category = document.createElement(state.describeRound === 2 ? "button" : "div");
     category.className = "describe-category";
-    category.append(createFeatureIcon(feature));
+    if (state.describeRound === 2) {
+      category.type = "button";
+      category.classList.add("describe-icon-answer");
+      category.setAttribute("aria-label", `${feature.label}: ${typeof answer === "boolean" ? (answer ? "yes" : "no") : "not answered"}. Tap to change.`);
+      category.addEventListener("click", () => {
+        state.describeAnswers[feature.key] = typeof answer !== "boolean" ? true : !answer;
+        state.describeWrongKeys = state.describeWrongKeys.filter(key => key !== feature.key);
+        renderDescribeRound();
+      });
+    }
+    const iconWrap = document.createElement("span");
+    iconWrap.className = "describe-category-icon";
+    iconWrap.append(createFeatureIcon(feature));
+    if ((state.describeRound === 2 && typeof answer === "boolean") || answer === false) {
+      const mark = document.createElement("span");
+      mark.className = `describe-category-mark ${answer ? "is-check" : "is-x"}`;
+      mark.textContent = answer ? "✓" : "✕";
+      mark.setAttribute("aria-hidden", "true");
+      iconWrap.append(mark);
+    }
+    category.append(iconWrap);
     const label = document.createElement("strong");
     label.textContent = feature.label;
     category.append(label);
+    if (state.describeRound === 2) {
+      card.append(category);
+      els.describeChoices.append(card);
+      return;
+    }
     const buttons = document.createElement("div");
     buttons.className = "describe-answer-buttons";
-    [[true, "Yes"], [false, "No"]].forEach(([value, text]) => {
+    [[true, "✓"], [false, "✕"]].forEach(([value, text]) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "describe-answer-button";
       button.classList.toggle("is-selected", state.describeAnswers[feature.key] === value);
       button.setAttribute("aria-pressed", String(state.describeAnswers[feature.key] === value));
+      button.setAttribute("aria-label", value ? "Category describes the smiley" : "Category does not describe the smiley");
       button.textContent = text;
       button.addEventListener("click", () => {
         state.describeAnswers[feature.key] = value;
