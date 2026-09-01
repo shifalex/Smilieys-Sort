@@ -2588,8 +2588,11 @@ function renderSmileys(excludedId = null) {
   getAllDropContainers().forEach(zone => zone.replaceChildren());
   getSmileysInRenderOrder().forEach(smiley => {
     if (excludedIds.has(smiley.id)) {
-      if (smiley.zone === "order" || smiley.zone === "permutation-order" || smiley.zone === "statistics-order") {
-        getZoneElement(smiley.zone).append(createOrderPlaceholder());
+      const activeDrag = [...state.smileyDrags.values()].find(drag => drag.id === smiley.id);
+      if (activeDrag || smiley.zone === "order" || smiley.zone === "permutation-order" || smiley.zone === "statistics-order") {
+        const placeholder = activeDrag ? createDragOriginPlaceholder() : createOrderPlaceholder();
+        getZoneElement(smiley.zone).append(placeholder);
+        if (activeDrag) activeDrag.placeholder = placeholder;
       }
       return;
     }
@@ -2618,6 +2621,12 @@ function createOrderPlaceholder() {
   const placeholder = document.createElement("span");
   placeholder.className = "smiley-placeholder";
   placeholder.setAttribute("aria-hidden", "true");
+  return placeholder;
+}
+
+function createDragOriginPlaceholder() {
+  const placeholder = createOrderPlaceholder();
+  placeholder.classList.add("drag-origin-placeholder");
   return placeholder;
 }
 
@@ -2740,8 +2749,10 @@ function beginDrag(event, node) {
     originalZone: state.smileys.find(item => item.id === node.dataset.id)?.zone,
     originalPlacementOrder: state.smileys.find(item => item.id === node.dataset.id)?.placementOrder,
     previewZone: null,
-    previewIndex: null
+    previewIndex: null,
+    placeholder: createDragOriginPlaceholder()
   };
+  node.before(drag.placeholder);
   state.smileyDrags.set(event.pointerId, drag);
   node.style.width = `${rect.width}px`;
   node.style.height = `${rect.height}px`;
@@ -3348,13 +3359,14 @@ function cancelDrag(event = null) {
 
 function cleanupDrag(drag) {
   if (!drag) return;
-  const { node, pointerId } = drag;
+  const { node, pointerId, placeholder } = drag;
   if (node.hasPointerCapture(pointerId)) {
     node.releasePointerCapture(pointerId);
   }
   node.classList.remove("dragging");
   node.removeAttribute("style");
   node.remove();
+  placeholder?.remove();
   state.smileyDrags.delete(pointerId);
   if (!state.smileyDrags.size) {
     document.removeEventListener("pointermove", moveDrag);

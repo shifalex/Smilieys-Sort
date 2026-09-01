@@ -7882,6 +7882,11 @@ body:has(.setup-panel:not(.hidden)) .count-check-dialog {
   background: rgba(47, 111, 159, 0.08);
 }
 
+.smiley-placeholder.drag-origin-placeholder {
+  border-color: transparent;
+  background: transparent;
+}
+
 .describe-smiley .smiley {
   pointer-events: none;
   cursor: default;
