@@ -1179,7 +1179,7 @@ function makeHierarchyChallenge() {
 }
 
 function hierarchySmileySignature(smiley) {
-  return features.map(feature => String(smiley[feature.key])).join("|");
+  return [smiley.shape, smiley.color, smiley.expression, smiley.hat, smiley.ears].join("|");
 }
 
 function toggleHierarchyFeature(smiley, featureKey) {
