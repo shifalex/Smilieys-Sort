@@ -33,6 +33,9 @@ const ROOM_EXIT_MS = 4000;
 const ROOM_REORDER_MS = 760;
 const SMILEY_RETURN_SETTLE_MS = 120;
 const SUCCESS_SMILEY_RETURN_MS = 2400;
+const AVERAGE_CELEBRATION_MS = 700;
+const AVERAGE_SLIDE_MS = 1050;
+const PHOTO_PREVIEW_MS = 600;
 const TEAM_PROGRESSION = [[2, 3], [2, 4], [3, 4], [3, 5], [2, 5]];
 const SUCCESS_CATEGORY_FADE_OUT_MS = 400;
 const SUCCESS_CATEGORY_FADE_IN_MS = 440;
@@ -5558,20 +5561,27 @@ function captureTeamPhoto() {
     if (navigator.vibrate) navigator.vibrate(80);
     return;
   }
-  const previousRects = collectSmileyRects();
   state.teamAlbum.push({ key, order });
-  team.forEach(smiley => {
-    smiley.zone = "team-source";
-    smiley.placementOrder = smiley.originalOrder;
-  });
   renderTeamAlbum();
-  renderSmileys();
-  animateSmileysFrom(previousRects, null, "pair");
+  els.teamCameraButton.disabled = true;
+  els.workPanel.classList.add("photo-holding");
   setProgress(`${state.teamAlbum.length} of ${getTeamGoal()}`);
-  if (state.teamAlbum.length >= getTeamGoal()) {
-    els.teamCameraButton.disabled = true;
-    window.setTimeout(unlockSubmitButton, 720);
-  }
+  scheduleCycleTimer(() => {
+    if (state.phase !== "team") return;
+    const previousRects = collectSmileyRects();
+    team.forEach(smiley => {
+      smiley.zone = "team-source";
+      smiley.placementOrder = smiley.originalOrder;
+    });
+    renderSmileys();
+    animateSmileysFrom(previousRects, null, "pair");
+    els.workPanel.classList.remove("photo-holding");
+    updateTeamCameraState();
+    if (state.teamAlbum.length >= getTeamGoal()) {
+      els.teamCameraButton.disabled = true;
+      window.setTimeout(unlockSubmitButton, 720);
+    }
+  }, PHOTO_PREVIEW_MS);
 }
 
 function renderTeamAlbum() {
@@ -5659,6 +5669,7 @@ function renderPairCombinationAlbum() {
     slot.className = "album-photo";
     if (photo) {
       slot.classList.add("has-photo");
+      slot.dataset.pairKey = photo.key;
       if (index === state.pairCombinationAlbum.length - 1) {
         slot.classList.add("pair-photo-entering");
         slot.addEventListener("animationend", () => slot.classList.remove("pair-photo-entering"), { once: true });
@@ -5697,28 +5708,41 @@ function capturePairCombinationPhoto() {
   const existing = state.pairCombinationAlbum.find(photo => photo.key === key);
   if (existing) {
     state.pairCombinationHadMistake = true;
+    const previousPhoto = els.pairAlbumPages.querySelector(`.album-photo[data-pair-key="${CSS.escape(key)}"]`);
+    if (previousPhoto) {
+      previousPhoto.classList.remove("wiggle");
+      window.requestAnimationFrame(() => previousPhoto.classList.add("wiggle"));
+      previousPhoto.addEventListener("animationend", () => previousPhoto.classList.remove("wiggle"), { once: true });
+    }
     if (navigator.vibrate) navigator.vibrate(80);
     return;
   }
-  const previousRects = collectSmileyRects();
   state.pairCombinationAlbum.push({ key, order: pair.map(smiley => smiley.id) });
-  pair.forEach(smiley => {
-    smiley.zone = `pair-source-${smiley.pairSource}`;
-    smiley.placementOrder = smiley.originalOrder;
-  });
   renderPairCombinationAlbum();
-  renderSmileys();
-  animateSmileysFrom(previousRects, null, "pair");
+  els.pairCameraButton.disabled = true;
+  els.workPanel.classList.add("photo-holding");
   setProgress(`${state.pairCombinationAlbum.length} of ${getPairCombinationGoal()}`);
-  if (state.pairCombinationAlbum.length >= getPairCombinationGoal()) {
-    els.pairCameraButton.disabled = true;
-    window.setTimeout(() => {
-      if (state.phase === "pair-combination" &&
-          state.pairCombinationAlbum.length >= getPairCombinationGoal()) {
-        unlockSubmitButton();
-      }
-    }, 720);
-  }
+  scheduleCycleTimer(() => {
+    if (state.phase !== "pair-combination") return;
+    const previousRects = collectSmileyRects();
+    pair.forEach(smiley => {
+      smiley.zone = `pair-source-${smiley.pairSource}`;
+      smiley.placementOrder = smiley.originalOrder;
+    });
+    renderSmileys();
+    animateSmileysFrom(previousRects, null, "pair");
+    els.workPanel.classList.remove("photo-holding");
+    updatePairCombinationCameraState();
+    if (state.pairCombinationAlbum.length >= getPairCombinationGoal()) {
+      els.pairCameraButton.disabled = true;
+      window.setTimeout(() => {
+        if (state.phase === "pair-combination" &&
+            state.pairCombinationAlbum.length >= getPairCombinationGoal()) {
+          unlockSubmitButton();
+        }
+      }, 720);
+    }
+  }, PHOTO_PREVIEW_MS);
 }
 
 function completePairCombinationAlbum() {
@@ -5991,11 +6015,19 @@ function capturePermutationPhoto() {
 
   state.permutationAlbum.push({ key, order: ordered.map(smiley => smiley.id) });
   renderPermutationAlbum();
+  els.cameraButton.disabled = true;
+  els.workPanel.classList.add("photo-holding");
   setProgress(`${state.permutationAlbum.length} of ${getPermutationGoal()}`);
-  if (state.permutationAlbum.length >= getPermutationGoal()) {
-    els.cameraButton.disabled = true;
-    unlockSubmitButton();
-  }
+  scheduleCycleTimer(() => {
+    if (state.phase !== "permutation") return;
+    els.workPanel.classList.remove("photo-holding");
+    if (state.permutationAlbum.length >= getPermutationGoal()) {
+      els.cameraButton.disabled = true;
+      unlockSubmitButton();
+    } else {
+      els.cameraButton.disabled = false;
+    }
+  }, PHOTO_PREVIEW_MS);
 }
 
 function completePermutationAlbum() {
@@ -7144,20 +7176,43 @@ function finishSet(previousRects) {
     finishReusableCycle(completedMission);
     return;
   }
+  if (completedMission === "average") {
+    finishAverageCycle();
+    return;
+  }
   runNewSmileysCycleTransition(
     () => startNextMissionRound(completedMission),
     {
-      animateSmileys: shouldAnimateRoomSmileys(completedMission),
-      replaceAllSmileys: completedMission === "average",
-      fadeCategories: completedMission !== "average"
+      animateSmileys: shouldAnimateRoomSmileys(completedMission)
     }
   );
+}
+
+function finishAverageCycle() {
+  state.phase = "transitioning";
+  lockSubmitButton();
+  els.workPanel.classList.add("is-celebrating");
+  celebrateCycle(AVERAGE_CELEBRATION_MS);
+
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.add("average-round-exiting");
+  }, AVERAGE_CELEBRATION_MS);
+
+  scheduleCycleTimer(() => {
+    startAverageMission(false);
+    els.workPanel.classList.remove("is-celebrating", "average-round-exiting");
+    els.workPanel.classList.add("average-round-entering");
+  }, AVERAGE_CELEBRATION_MS + AVERAGE_SLIDE_MS);
+
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("average-round-entering");
+    unlockSubmitButton();
+  }, AVERAGE_CELEBRATION_MS + (AVERAGE_SLIDE_MS * 2));
 }
 
 function runNewSmileysCycleTransition(startNextRound, options = {}) {
   const animateSmileys = options.animateSmileys !== false;
   const fadeCategories = options.fadeCategories !== false;
-  const replaceAllSmileys = options.replaceAllSmileys === true;
   const returnHomeDuration = animateSmileys ? SUCCESS_SMILEY_RETURN_MS : 0;
   const returnHomeDelay = animateSmileys ? CYCLE_CELEBRATION_MS : 0;
   const exitStartDelay = returnHomeDelay + returnHomeDuration +
@@ -7185,11 +7240,7 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
     }, returnHomeDelay);
 
     scheduleCycleTimer(() => {
-      if (replaceAllSmileys) {
-        markAllCurrentSmileysDeparting();
-      } else {
-        markDepartingRoomSmileys();
-      }
+      markDepartingRoomSmileys();
       els.workPanel.classList.add("smileys-exiting");
     }, exitStartDelay);
 
@@ -7206,10 +7257,6 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
     }
     startNextRound();
     state.departingSmileyIds = [];
-    if (replaceAllSmileys) {
-      state.enteringSmileyIds = state.smileys.map(smiley => smiley.id);
-      renderSmileys();
-    }
     els.workPanel.classList.remove("is-celebrating");
     els.workPanel.classList.remove("smileys-wiggling");
     els.workPanel.classList.remove("smileys-exiting");
@@ -7709,6 +7756,9 @@ function clearCycleTimers() {
     els.workPanel.classList.remove("criteria-held-hidden");
     els.workPanel.classList.remove("criteria-fading-out");
     els.workPanel.classList.remove("criteria-fading-in");
+    els.workPanel.classList.remove("average-round-exiting");
+    els.workPanel.classList.remove("average-round-entering");
+    els.workPanel.classList.remove("photo-holding");
     els.workPanel.classList.remove("is-celebrating");
     els.celebration.classList.add("hidden");
     document.querySelectorAll(".category-transition-ghost").forEach(node => node.remove());
