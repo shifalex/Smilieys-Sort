@@ -88,6 +88,7 @@ function init() {
   els.carrollMissionButton.addEventListener("click", () => startCarrollMission());
   els.compareMissionButton.addEventListener("click", () => startCompareMission());
   els.simpleCompareMissionButton.addEventListener("click", () => startSimpleCompareMission());
+  els.describeMissionButton?.addEventListener("click", () => startDescribeMission());
   els.permutationMissionButton.addEventListener("click", () => startPermutationMission());
   els.pairCombinationMissionButton.addEventListener("click", () => startPairCombinationMission());
   els.teamMissionButton?.addEventListener("click", () => startTeamMission());
@@ -930,6 +931,136 @@ function startSimilarityMission(clearPendingTimers = true) {
   startSimilarityPhase();
 }
 
+function startDescribeMission(clearPendingTimers = true) {
+  if (clearPendingTimers) clearCycleTimers();
+  state.mission = "describe";
+  state.phase = "describe";
+  state.describeRound = 0;
+  state.smileys = [];
+  state.countChallenge = null;
+  resetMistakeCounter();
+  prepareDescribeRound();
+  els.setupPanel.classList.add("hidden");
+  els.workPanel.classList.remove("hidden");
+  els.backButton.classList.remove("hidden");
+  startDescribePhase();
+}
+
+function prepareDescribeRound() {
+  const categoryCount = [1, 2, features.length][state.describeRound] || features.length;
+  const previousKey = state.describeSmiley ? creatorSmileyKey(state.describeSmiley) : null;
+  const candidates = shuffle(makeAllSmileyCombinations())
+    .filter(smiley => creatorSmileyKey(smiley) !== previousKey);
+  state.describeSmiley = makePlayableSmileys([candidates[0]])[0];
+  if (categoryCount === features.length) {
+    state.describeFeatures = [...features];
+  } else if (categoryCount === 2) {
+    const matching = shuffle(features.filter(feature => feature.get(state.describeSmiley)));
+    const notMatching = shuffle(features.filter(feature => !feature.get(state.describeSmiley)));
+    state.describeFeatures = matching.length && notMatching.length
+      ? shuffle([matching[0], notMatching[0]])
+      : shuffle(features).slice(0, 2);
+  } else {
+    state.describeFeatures = shuffle(features).slice(0, 1);
+  }
+  state.describeAnswers = {};
+  state.describeWrongKeys = [];
+}
+
+function startDescribePhase() {
+  state.phase = "describe";
+  [els.sortTable, els.orderingPanel, els.statisticsPanel, els.carrollPanel, els.comparePanel,
+    els.simpleComparePanel, els.permutationPanel, els.pairCombinationPanel, els.teamPanel,
+    els.selectionPanel, els.creatorPanel, els.vennPanel, els.nestedPanel, els.implicitPanel,
+    els.countingPanel, els.similarityPanel]
+    .forEach(panel => panel?.classList.add("hidden"));
+  els.describePanel.classList.remove("hidden", "describe-exiting", "describe-entering");
+  els.tray.replaceChildren();
+  els.trayLabel.textContent = "";
+  setHeader("Describe?", `${state.describeRound + 1} of 3`);
+  els.submitSortButton.textContent = "OK";
+  unlockSubmitButton();
+  renderDescribeRound();
+}
+
+function renderDescribeRound() {
+  const prompts = [
+    "Does this category describe the smiley?",
+    "Decide for both categories.",
+    "Decide for every category."
+  ];
+  els.describePrompt.textContent = prompts[state.describeRound];
+  const smileyNode = createSmileyNode({ ...state.describeSmiley, id: `describe-${state.describeSmiley.id}` });
+  smileyNode.setAttribute("tabindex", "-1");
+  els.describeSmiley.replaceChildren(smileyNode);
+  els.describeChoices.replaceChildren();
+  state.describeFeatures.forEach(feature => {
+    const card = document.createElement("div");
+    card.className = "describe-category-card";
+    card.dataset.featureKey = feature.key;
+    card.classList.toggle("wiggle", state.describeWrongKeys.includes(feature.key));
+    const category = document.createElement("div");
+    category.className = "describe-category";
+    category.append(createFeatureIcon(feature));
+    const label = document.createElement("strong");
+    label.textContent = feature.label;
+    category.append(label);
+    const buttons = document.createElement("div");
+    buttons.className = "describe-answer-buttons";
+    [[true, "Yes"], [false, "No"]].forEach(([value, text]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "describe-answer-button";
+      button.classList.toggle("is-selected", state.describeAnswers[feature.key] === value);
+      button.setAttribute("aria-pressed", String(state.describeAnswers[feature.key] === value));
+      button.textContent = text;
+      button.addEventListener("click", () => {
+        state.describeAnswers[feature.key] = value;
+        state.describeWrongKeys = state.describeWrongKeys.filter(key => key !== feature.key);
+        renderDescribeRound();
+      });
+      buttons.append(button);
+    });
+    card.append(category, buttons);
+    els.describeChoices.append(card);
+  });
+}
+
+function validateDescribe() {
+  const unanswered = state.describeFeatures
+    .filter(feature => typeof state.describeAnswers[feature.key] !== "boolean")
+    .map(feature => feature.key);
+  const wrong = state.describeFeatures
+    .filter(feature => typeof state.describeAnswers[feature.key] === "boolean" &&
+      state.describeAnswers[feature.key] !== Boolean(feature.get(state.describeSmiley)))
+    .map(feature => feature.key);
+  state.describeWrongKeys = [...unanswered, ...wrong];
+  if (state.describeWrongKeys.length) {
+    state.mistakeStreak += 1;
+    renderDescribeRound();
+    signalIncorrect();
+    return;
+  }
+  resetMistakeCounter();
+  state.phase = "transitioning";
+  lockSubmitButton();
+  els.describePanel.classList.add("describe-exiting");
+  if (state.describeRound === 2) celebrateCycle(900);
+  scheduleCycleTimer(() => {
+    state.describeRound = (state.describeRound + 1) % 3;
+    prepareDescribeRound();
+    state.phase = "describe";
+    els.describePanel.classList.remove("describe-exiting");
+    els.describePanel.classList.add("describe-entering");
+    setHeader("Describe?", `${state.describeRound + 1} of 3`);
+    renderDescribeRound();
+  }, 650);
+  scheduleCycleTimer(() => {
+    els.describePanel.classList.remove("describe-entering");
+    unlockSubmitButton();
+  }, 1300);
+}
+
 function startStatisticsMission(clearPendingTimers = true) {
   if (clearPendingTimers) {
     clearCycleTimers();
@@ -1143,7 +1274,8 @@ function reorderMissionMenu() {
     "orderingMissionButton",
     "averageMissionButton",
     "statisticsMissionButton",
-    "nestedMissionButton"
+    "nestedMissionButton",
+    "describeMissionButton"
   ].forEach(id => {
     const button = document.getElementById(id);
     if (button) missionGrid.append(button);
@@ -1473,6 +1605,7 @@ function showSetup() {
   );
   els.similarityPanel.classList.add("hidden");
   els.nestedPanel.classList.add("hidden");
+  els.describePanel?.classList.add("hidden");
   state.smileys = [];
   state.activeFeatures = [];
   state.activeOrderingCriteria = [];
@@ -3075,6 +3208,10 @@ function validateCurrentPhase(skipCountOffer = false) {
   }
   if (state.phase === "simple-compare") {
     validateSimpleCompare();
+    return;
+  }
+  if (state.phase === "describe") {
+    validateDescribe();
     return;
   }
   if (state.phase === "permutation") {
@@ -7796,6 +7933,7 @@ function clearCycleTimers() {
     els.workPanel.classList.remove("average-round-exiting");
     els.workPanel.classList.remove("average-round-entering");
     els.workPanel.classList.remove("photo-holding");
+    els.describePanel?.classList.remove("describe-exiting", "describe-entering");
     els.workPanel.classList.remove("is-celebrating");
     els.celebration.classList.add("hidden");
     document.querySelectorAll(".category-transition-ghost").forEach(node => node.remove());

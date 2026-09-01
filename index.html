@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=drawn-relation-symbols-v265-20260901">
+    <link rel="stylesheet" href="styles.css?v=describe-stage-v266-20260901">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -204,6 +204,12 @@
                 <span class="team-photo-face is-square"><i></i></span>
               </span>
               <span class="mission-word" aria-hidden="true">Teams</span>
+            </button>
+            <button class="mission-choice describe-mission" type="button" id="describeMissionButton" aria-label="Practice choosing categories that describe a smiley">
+              <span class="describe-sketch" aria-hidden="true">
+                <span>✓</span><span>?</span><span>✕</span>
+              </span>
+              <span class="mission-word" aria-hidden="true">Describe?</span>
             </button>
           </div>
         </div>
@@ -446,6 +452,12 @@
           </div>
         </div>
 
+        <div class="describe-panel hidden" id="describePanel">
+          <p class="describe-prompt" id="describePrompt"></p>
+          <div class="describe-smiley" id="describeSmiley" aria-label="Smiley to describe"></div>
+          <div class="describe-choices" id="describeChoices" aria-label="Choose whether each category describes the smiley"></div>
+        </div>
+
         <div class="action-row">
           <div class="counting-prompt" aria-label="Counting directions">
             <p class="counting-question" id="countingQuestion"></p>
@@ -536,6 +548,6 @@
         document.body.append(notice);
       }
     </script>
-    <script type="module" src="app.js?v=drawn-relation-symbols-v265-20260901"></script>
+    <script type="module" src="app.js?v=describe-stage-v266-20260901"></script>
   </body>
 </html>
