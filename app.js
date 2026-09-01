@@ -826,7 +826,12 @@ function clearVennLighting(stage) {
 }
 
 function chooseFeatureMission() {
-  startSet(6);
+  startSet(randomFeatureSmileyCount());
+}
+
+function randomFeatureSmileyCount(previousCount = null) {
+  const counts = [5, 6, 7].filter(count => count !== previousCount);
+  return counts[Math.floor(Math.random() * counts.length)];
 }
 
 function chooseMode(useNumbers) {
@@ -4413,7 +4418,7 @@ function finishFeatureCycle() {
     return;
   }
 
-  const nextCount = randomCountDifferentFrom(state.smileys.length);
+  const nextCount = randomFeatureSmileyCount(state.smileys.length);
   runNewSmileysCycleTransition(() => startSet(nextCount, false));
 }
 
