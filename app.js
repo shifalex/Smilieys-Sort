@@ -3800,7 +3800,7 @@ function createRelationIcon(relation) {
   }
   if (state.relationDisplayMode !== "iconic") {
     const symbol = document.createElement("span");
-    symbol.className = "relation-symbol-legacy";
+    symbol.className = `relation-symbol-legacy ${relation === "different" ? "is-different" : "is-same"}`;
     symbol.textContent = relation === "different" ? "≠" : "=";
     return symbol;
   }

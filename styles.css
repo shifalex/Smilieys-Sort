@@ -7235,12 +7235,34 @@ html.visual-relation-icons .relation-symbol-legacy {
 }
 
 .relation-mode-summary .relation-symbol-legacy {
-  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
   font-size: 1.45rem;
-  font-style: normal;
-  font-synthesis: none;
-  font-weight: 700;
+}
+
+.relation-symbol-legacy {
+  position: relative;
+  display: inline-block;
+  width: 1.35em;
+  height: 0.9em;
+  overflow: hidden;
+  background:
+    linear-gradient(currentColor, currentColor) center 28% / 82% 0.13em no-repeat,
+    linear-gradient(currentColor, currentColor) center 72% / 82% 0.13em no-repeat;
+  font-size: 1em;
   line-height: 1;
+  text-indent: -9999px;
+  vertical-align: -0.08em;
+}
+
+.relation-symbol-legacy.is-different::after {
+  position: absolute;
+  left: 50%;
+  top: -8%;
+  width: 0.13em;
+  height: 116%;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+  transform: translateX(-50%) rotate(34deg);
 }
 
 .relation-mode-summary .relation-word {
