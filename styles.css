@@ -2543,6 +2543,7 @@ html:not(.layout-lighting-off) .coin-bank.is-over {
 
 .selection-submit-row {
   display: none;
+  grid-template-columns: minmax(92px, 180px) minmax(0, 440px) minmax(92px, 180px);
   align-items: center;
   justify-content: center;
   gap: 14px;
@@ -2550,11 +2551,20 @@ html:not(.layout-lighting-off) .coin-bank.is-over {
 }
 
 .work-panel:has(.selection-panel:not(.hidden)) .selection-submit-row {
-  display: flex;
+  display: grid;
 }
 
 .selection-ok-slot {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
   flex: 0 0 auto;
+}
+
+.selection-submit-row .selection-target-zone {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
 }
 
 .selection-ok-slot .submit-sort-button {
@@ -2564,6 +2574,17 @@ html:not(.layout-lighting-off) .coin-bank.is-over {
 
 .work-panel:has(.selection-panel:not(.hidden)) > .action-row {
   display: none;
+}
+
+@media (max-width: 680px) {
+  .selection-submit-row {
+    grid-template-columns: 92px minmax(0, 440px) 92px;
+    gap: 8px;
+  }
+
+  .selection-ok-slot .submit-sort-button {
+    width: 92px;
+  }
 }
 
 .work-panel:has(.selection-panel:not(.hidden)) .selection-target-zone {
