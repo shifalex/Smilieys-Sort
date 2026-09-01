@@ -57,6 +57,7 @@ let lastSubmitTouchTime = 0;
 
 function init() {
   document.documentElement.classList.toggle("visual-relation-icons", USE_VISUAL_RELATION_ICONS);
+  reorderMissionMenu();
   // Keep the app usable if an older service-worker cache supplied a partial state object.
   state.rememberRoomState ??= true;
   state.enteringSmileyIds ??= [];
@@ -1119,6 +1120,33 @@ function startPermutationMission(clearPendingTimers = true) {
   els.workPanel.classList.remove("hidden");
   els.backButton.classList.remove("hidden");
   startPermutationPhase();
+}
+
+function reorderMissionMenu() {
+  const missionGrid = document.querySelector(".mission-grid");
+  if (!missionGrid) return;
+  [
+    "featureMissionButton",
+    "carrollMissionButton",
+    "simpleCompareMissionButton",
+    "compareMissionButton",
+    "vennMissionButton",
+    "selectionMissionButton",
+    "implicitMissionButton",
+    "countingMissionButton",
+    "permutationMissionButton",
+    "pairCombinationMissionButton",
+    "teamMissionButton",
+    "creatorMissionButton",
+    "similarityMissionButton",
+    "orderingMissionButton",
+    "averageMissionButton",
+    "statisticsMissionButton",
+    "nestedMissionButton"
+  ].forEach(id => {
+    const button = document.getElementById(id);
+    if (button) missionGrid.append(button);
+  });
 }
 
 function startPairCombinationMission(clearPendingTimers = true) {
