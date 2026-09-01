@@ -1113,27 +1113,50 @@ function startHierarchyMission(clearPendingTimers = true) {
 }
 
 function makeHierarchyChallenge() {
-  const rootRaw = shuffle(makeAllSmileyCombinations())[0];
-  const [first, second, shared, leftOnly, rightOnly] = shuffle(features);
-  const rawNodes = [
-    rootRaw,
-    toggleHierarchyFeature(rootRaw, first.key),
-    toggleHierarchyFeature(rootRaw, second.key)
+  const layouts = [
+    [
+      { parentIndex: 0, x: 27, y: 42 }, { parentIndex: 0, x: 73, y: 42 },
+      { parentIndex: 1, x: 12, y: 84 }, { parentIndex: 1, x: 39, y: 84 },
+      { parentIndex: 2, x: 61, y: 84 }, { parentIndex: 2, x: 88, y: 84 }
+    ],
+    [
+      { parentIndex: 0, x: 30, y: 31 }, { parentIndex: 0, x: 76, y: 31 },
+      { parentIndex: 1, x: 14, y: 62 }, { parentIndex: 1, x: 46, y: 62 },
+      { parentIndex: 3, x: 14, y: 93 }
+    ],
+    [
+      { parentIndex: 0, x: 24, y: 31 }, { parentIndex: 0, x: 69, y: 31 },
+      { parentIndex: 1, x: 24, y: 62 },
+      { parentIndex: 2, x: 55, y: 62 }, { parentIndex: 2, x: 84, y: 62 },
+      { parentIndex: 5, x: 84, y: 93 }
+    ]
   ];
-  rawNodes.push(
-    toggleHierarchyFeature(rawNodes[1], shared.key),
-    toggleHierarchyFeature(rawNodes[1], leftOnly.key),
-    toggleHierarchyFeature(rawNodes[2], shared.key),
-    toggleHierarchyFeature(rawNodes[2], rightOnly.key)
-  );
+  const layout = layouts[state.hierarchyRound % layouts.length];
+  let rawNodes = null;
+  for (let attempt = 0; attempt < 60 && !rawNodes; attempt += 1) {
+    const candidateNodes = [shuffle(makeAllSmileyCombinations())[0]];
+    const used = new Set([hierarchySmileySignature(candidateNodes[0])]);
+    let valid = true;
+    for (const node of layout) {
+      const parent = candidateNodes[node.parentIndex];
+      const child = shuffle(features)
+        .map(feature => toggleHierarchyFeature(parent, feature.key))
+        .find(candidate => !used.has(hierarchySmileySignature(candidate)));
+      if (!child) {
+        valid = false;
+        break;
+      }
+      used.add(hierarchySmileySignature(child));
+      candidateNodes.push(child);
+    }
+    if (valid) rawNodes = candidateNodes;
+  }
+  if (!rawNodes) throw new Error("Could not create a unique hierarchy tree");
   const playable = makePlayableSmileys(rawNodes);
   state.hierarchyRoot = playable[0];
-  const parents = [null, 0, 0, 1, 1, 2, 2];
-  const branchFeatures = [null, first, second, shared, leftOnly, shared, rightOnly];
   state.hierarchyNodes = playable.slice(1).map((smiley, offset) => ({
     index: offset + 1,
-    parentIndex: parents[offset + 1],
-    changedFeature: branchFeatures[offset + 1],
+    ...layout[offset],
     smileyId: smiley.id
   }));
   state.smileys = shuffle(playable.slice(1)).map((smiley, index) => ({
@@ -1144,6 +1167,10 @@ function makeHierarchyChallenge() {
     expectedZone: `hierarchy-node-${state.hierarchyNodes.find(node => node.smileyId === smiley.id).index}`
   }));
   state.hierarchyHadMistake = false;
+}
+
+function hierarchySmileySignature(smiley) {
+  return features.map(feature => String(smiley[feature.key])).join("|");
 }
 
 function toggleHierarchyFeature(smiley, featureKey) {
@@ -1174,9 +1201,26 @@ function startHierarchyPhase() {
 
 function renderHierarchyTree() {
   els.hierarchyTree.replaceChildren();
-  for (let index = 0; index < 7; index += 1) {
+  const positions = [{ x: 50, y: 0 }, ...state.hierarchyNodes.map(({ x, y }) => ({ x, y }))];
+  const branches = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  branches.classList.add("hierarchy-lines");
+  branches.setAttribute("viewBox", "0 0 100 100");
+  branches.setAttribute("preserveAspectRatio", "none");
+  branches.setAttribute("aria-hidden", "true");
+  state.hierarchyNodes.forEach(nodeData => {
+    const parent = positions[nodeData.parentIndex];
+    const child = positions[nodeData.index];
+    const middleY = (parent.y + child.y) / 2;
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", `M ${parent.x} ${parent.y} V ${middleY} H ${child.x} V ${child.y}`);
+    branches.append(path);
+  });
+  els.hierarchyTree.append(branches);
+  for (let index = 0; index < positions.length; index += 1) {
     const node = document.createElement("div");
-    node.className = `hierarchy-node hierarchy-node-${index}`;
+    node.className = "hierarchy-node";
+    node.style.setProperty("--tree-x", `${positions[index].x}%`);
+    node.style.setProperty("--tree-y", `${positions[index].y}%`);
     if (index === 0) {
       node.classList.add("is-root");
       node.append(createStaticSmileyNode(state.hierarchyRoot));
@@ -1187,13 +1231,6 @@ function renderHierarchyTree() {
     }
     els.hierarchyTree.append(node);
   }
-  state.hierarchyNodes.forEach(nodeData => {
-    const branch = document.createElement("div");
-    branch.className = `hierarchy-branch hierarchy-branch-${nodeData.index}`;
-    branch.append(createFeatureIcon(nodeData.changedFeature));
-    branch.setAttribute("aria-hidden", "true");
-    els.hierarchyTree.append(branch);
-  });
 }
 
 function validateHierarchy() {
