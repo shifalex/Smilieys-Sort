@@ -1103,6 +1103,7 @@ function startHierarchyMission(clearPendingTimers = true) {
   state.mission = "hierarchy";
   state.phase = "hierarchy";
   state.hierarchyRound = 0;
+  state.hierarchySeenRoots = [];
   state.countChallenge = null;
   resetMistakeCounter();
   makeHierarchyChallenge();
@@ -1132,10 +1133,15 @@ function makeHierarchyChallenge() {
     ]
   ];
   const layout = layouts[state.hierarchyRound % layouts.length];
+  const seenRoots = new Set(state.hierarchySeenRoots);
   let rawNodes = null;
-  for (let attempt = 0; attempt < 60 && !rawNodes; attempt += 1) {
-    const candidateNodes = [shuffle(makeAllSmileyCombinations())[0]];
-    const used = new Set([hierarchySmileySignature(candidateNodes[0])]);
+  for (let attempt = 0; attempt < 1200 && !rawNodes; attempt += 1) {
+    const availableRoots = shuffle(makeAllSmileyCombinations())
+      .filter(smiley => !seenRoots.has(hierarchySmileySignature(smiley)));
+    const root = availableRoots[0];
+    if (!root) break;
+    const candidateNodes = [root];
+    const used = new Set([hierarchySmileySignature(root)]);
     let valid = true;
     for (const node of layout) {
       const parent = candidateNodes[node.parentIndex];
@@ -1152,6 +1158,7 @@ function makeHierarchyChallenge() {
     if (valid) rawNodes = candidateNodes;
   }
   if (!rawNodes) throw new Error("Could not create a unique hierarchy tree");
+  state.hierarchySeenRoots.push(hierarchySmileySignature(rawNodes[0]));
   const playable = makePlayableSmileys(rawNodes);
   state.hierarchyRoot = playable[0];
   state.hierarchyNodes = playable.slice(1).map((smiley, offset) => ({
@@ -1251,6 +1258,7 @@ function validateHierarchy() {
   els.hierarchyPanel.classList.add("hierarchy-exiting");
   scheduleCycleTimer(() => {
     state.hierarchyRound = (state.hierarchyRound + 1) % 3;
+    if (state.hierarchyRound === 0) state.hierarchySeenRoots = [];
     makeHierarchyChallenge();
     state.phase = "hierarchy";
     els.hierarchyPanel.classList.remove("hierarchy-exiting");

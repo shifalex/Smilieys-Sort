@@ -44,6 +44,7 @@ export const state = {
   hierarchyRoot: null,
   hierarchyNodes: [],
   hierarchyHadMistake: false,
+  hierarchySeenRoots: [],
   similarityChallenge: null,
   similaritySelectedIndex: null,
   permutationLevel: 1,

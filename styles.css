@@ -8039,15 +8039,15 @@ body:has(.setup-panel:not(.hidden)) .count-check-dialog {
 .hierarchy-panel {
   display: grid;
   justify-items: center;
-  min-height: min(590px, calc(100dvh - 320px));
-  padding: 12px clamp(4px, 2vw, 20px) 24px;
+  min-height: 0;
+  padding: 8px clamp(4px, 2vw, 20px) 14px;
   overflow: hidden;
 }
 
 .hierarchy-tree {
   position: relative;
-  width: min(100%, 980px);
-  height: clamp(430px, 55vh, 610px);
+  width: min(100%, 760px);
+  height: clamp(300px, calc(100dvh - 440px), 450px);
   margin-top: calc((var(--smiley-size) + 32px) / 2);
   margin-bottom: calc((var(--smiley-size) + 32px) / 2);
 }
@@ -8120,7 +8120,8 @@ body:has(.setup-panel:not(.hidden)) .count-check-dialog {
 
 @media (max-width: 700px) {
   .hierarchy-tree {
-    height: clamp(390px, 52vh, 520px);
+    width: min(100%, 680px);
+    height: clamp(300px, calc(100dvh - 420px), 420px);
   }
 
   .hierarchy-node {
