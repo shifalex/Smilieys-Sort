@@ -7235,9 +7235,12 @@ html.visual-relation-icons .relation-symbol-legacy {
 }
 
 .relation-mode-summary .relation-symbol-legacy {
-  font-family: inherit;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
   font-size: 1.45rem;
-  font-weight: 900;
+  font-style: normal;
+  font-synthesis: none;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .relation-mode-summary .relation-word {
