@@ -19,7 +19,7 @@ export const els = {
   compareMissionButton: document.querySelector("#compareMissionButton"),
   simpleCompareMissionButton: document.querySelector("#simpleCompareMissionButton"),
   describeMissionButton: document.querySelector("#describeMissionButton"),
-  familyMissionButton: document.querySelector("#familyMissionButton"),
+  hierarchyMissionButton: document.querySelector("#hierarchyMissionButton"),
   permutationMissionButton: document.querySelector("#permutationMissionButton"),
   pairCombinationMissionButton: document.querySelector("#pairCombinationMissionButton"),
   selectionMissionButton: document.querySelector("#selectionMissionButton"),
@@ -85,10 +85,8 @@ export const els = {
   describePrompt: document.querySelector("#describePrompt"),
   describeSmiley: document.querySelector("#describeSmiley"),
   describeChoices: document.querySelector("#describeChoices"),
-  familyPanel: document.querySelector("#familyPanel"),
-  familyPrompt: document.querySelector("#familyPrompt"),
-  familyParent: document.querySelector("#familyParent"),
-  familyChildren: document.querySelector("#familyChildren"),
+  hierarchyPanel: document.querySelector("#hierarchyPanel"),
+  hierarchyTree: document.querySelector("#hierarchyTree"),
   permutationPanel: document.querySelector("#permutationPanel"),
   permutationOrderZone: document.querySelector("#permutationOrderZone"),
   albumPages: document.querySelector("#albumPages"),
@@ -210,11 +208,13 @@ export function getAllDropContainers() {
     els.implicitABZone,
     els.implicitOutsideZone,
     els.selectionTargetZone,
+    ...Array.from(document.querySelectorAll("[data-zone^='hierarchy-node-']")),
     ...Array.from(document.querySelectorAll("[data-zone^='statistics-beard-']"))
   ].filter(Boolean);
 }
 
 export function getZoneElement(zone) {
+  if (zone.startsWith("hierarchy-node-")) return document.querySelector(`[data-zone="${CSS.escape(zone)}"]`);
   if (zone === "order") return els.orderingZone;
   if (zone === "statistics-order") return els.statisticsOrderZone;
   if (zone === "pair-source-a") return els.pairSourceA;

@@ -89,7 +89,7 @@ function init() {
   els.compareMissionButton.addEventListener("click", () => startCompareMission());
   els.simpleCompareMissionButton.addEventListener("click", () => startSimpleCompareMission());
   els.describeMissionButton?.addEventListener("click", () => startDescribeMission());
-  els.familyMissionButton?.addEventListener("click", () => startFamilyMission());
+  els.hierarchyMissionButton?.addEventListener("click", () => startHierarchyMission());
   els.permutationMissionButton.addEventListener("click", () => startPermutationMission());
   els.pairCombinationMissionButton.addEventListener("click", () => startPairCombinationMission());
   els.teamMissionButton?.addEventListener("click", () => startTeamMission());
@@ -1098,36 +1098,55 @@ function validateDescribe() {
   }, 1300);
 }
 
-function startFamilyMission(clearPendingTimers = true) {
+function startHierarchyMission(clearPendingTimers = true) {
   if (clearPendingTimers) clearCycleTimers();
-  state.mission = "family";
-  state.phase = "family";
-  state.familyRound = 0;
-  state.smileys = [];
+  state.mission = "hierarchy";
+  state.phase = "hierarchy";
+  state.hierarchyRound = 0;
   state.countChallenge = null;
   resetMistakeCounter();
-  state.familyChallenge = makeFamilyChallenge();
-  state.familySelectedIndex = null;
+  makeHierarchyChallenge();
   els.setupPanel.classList.add("hidden");
   els.workPanel.classList.remove("hidden");
   els.backButton.classList.remove("hidden");
-  startFamilyPhase();
+  startHierarchyPhase();
 }
 
-function makeFamilyChallenge() {
-  const parentRaw = shuffle(makeAllSmileyCombinations())[0];
-  const changedFeatures = shuffle(features).slice(0, 3);
-  const targetFeature = changedFeatures[0];
-  const childRaws = changedFeatures.map(feature => toggleFamilyFeature(parentRaw, feature.key));
-  const playable = makePlayableSmileys([parentRaw, ...childRaws]);
-  const children = shuffle(playable.slice(1).map((smiley, index) => ({
-    smiley,
-    changedFeature: changedFeatures[index]
-  })));
-  return { parent: playable[0], children, targetFeature };
+function makeHierarchyChallenge() {
+  const rootRaw = shuffle(makeAllSmileyCombinations())[0];
+  const [first, second, shared, leftOnly, rightOnly] = shuffle(features);
+  const rawNodes = [
+    rootRaw,
+    toggleHierarchyFeature(rootRaw, first.key),
+    toggleHierarchyFeature(rootRaw, second.key)
+  ];
+  rawNodes.push(
+    toggleHierarchyFeature(rawNodes[1], shared.key),
+    toggleHierarchyFeature(rawNodes[1], leftOnly.key),
+    toggleHierarchyFeature(rawNodes[2], shared.key),
+    toggleHierarchyFeature(rawNodes[2], rightOnly.key)
+  );
+  const playable = makePlayableSmileys(rawNodes);
+  state.hierarchyRoot = playable[0];
+  const parents = [null, 0, 0, 1, 1, 2, 2];
+  const branchFeatures = [null, first, second, shared, leftOnly, shared, rightOnly];
+  state.hierarchyNodes = playable.slice(1).map((smiley, offset) => ({
+    index: offset + 1,
+    parentIndex: parents[offset + 1],
+    changedFeature: branchFeatures[offset + 1],
+    smileyId: smiley.id
+  }));
+  state.smileys = shuffle(playable.slice(1)).map((smiley, index) => ({
+    ...smiley,
+    zone: "tray",
+    originalOrder: index,
+    placementOrder: index,
+    expectedZone: `hierarchy-node-${state.hierarchyNodes.find(node => node.smileyId === smiley.id).index}`
+  }));
+  state.hierarchyHadMistake = false;
 }
 
-function toggleFamilyFeature(smiley, featureKey) {
+function toggleHierarchyFeature(smiley, featureKey) {
   const child = { ...smiley };
   if (featureKey === "shape") child.shape = smiley.shape === "round" ? "square" : "round";
   if (featureKey === "color") child.color = smiley.color === "yellow" ? "red" : "yellow";
@@ -1137,80 +1156,74 @@ function toggleFamilyFeature(smiley, featureKey) {
   return child;
 }
 
-function startFamilyPhase() {
-  state.phase = "family";
+function startHierarchyPhase() {
+  state.phase = "hierarchy";
   [els.sortTable, els.orderingPanel, els.statisticsPanel, els.carrollPanel, els.comparePanel,
     els.simpleComparePanel, els.permutationPanel, els.pairCombinationPanel, els.teamPanel,
     els.selectionPanel, els.creatorPanel, els.vennPanel, els.nestedPanel, els.implicitPanel,
     els.countingPanel, els.similarityPanel, els.describePanel]
     .forEach(panel => panel?.classList.add("hidden"));
-  els.familyPanel.classList.remove("hidden", "family-exiting", "family-entering");
-  els.tray.replaceChildren();
+  els.hierarchyPanel.classList.remove("hidden", "hierarchy-exiting", "hierarchy-entering");
   els.trayLabel.textContent = "";
-  setHeader("Family Tree", `${state.familyRound + 1} of 3`);
+  setHeader("Hierarchy", `${state.hierarchyRound + 1} of 3`);
   els.submitSortButton.textContent = "OK";
   unlockSubmitButton();
-  renderFamilyChallenge();
+  renderHierarchyTree();
+  renderSmileys();
 }
 
-function renderFamilyChallenge() {
-  const challenge = state.familyChallenge;
-  els.familyPrompt.replaceChildren(
-    document.createTextNode("Which child differs from the parent only in "),
-    createFeatureIcon(challenge.targetFeature),
-    document.createTextNode("?")
-  );
-  els.familyParent.replaceChildren(createStaticSmileyNode(challenge.parent));
-  els.familyChildren.replaceChildren();
-  challenge.children.forEach((child, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "family-child";
-    button.classList.toggle("is-selected", state.familySelectedIndex === index);
-    button.setAttribute("aria-pressed", String(state.familySelectedIndex === index));
-    button.setAttribute("aria-label", `Child ${index + 1}`);
-    button.append(createStaticSmileyNode(child.smiley));
-    button.addEventListener("click", () => {
-      state.familySelectedIndex = index;
-      renderFamilyChallenge();
-    });
-    els.familyChildren.append(button);
+function renderHierarchyTree() {
+  els.hierarchyTree.replaceChildren();
+  for (let index = 0; index < 7; index += 1) {
+    const node = document.createElement("div");
+    node.className = `hierarchy-node hierarchy-node-${index}`;
+    if (index === 0) {
+      node.classList.add("is-root");
+      node.append(createStaticSmileyNode(state.hierarchyRoot));
+    } else {
+      node.classList.add("hierarchy-drop-zone");
+      node.dataset.zone = `hierarchy-node-${index}`;
+      node.setAttribute("aria-label", `Hierarchy node ${index + 1}`);
+    }
+    els.hierarchyTree.append(node);
+  }
+  state.hierarchyNodes.forEach(nodeData => {
+    const branch = document.createElement("div");
+    branch.className = `hierarchy-branch hierarchy-branch-${nodeData.index}`;
+    branch.append(createFeatureIcon(nodeData.changedFeature));
+    branch.setAttribute("aria-hidden", "true");
+    els.hierarchyTree.append(branch);
   });
 }
 
-function validateFamily() {
-  const challenge = state.familyChallenge;
-  const selected = challenge.children[state.familySelectedIndex];
-  if (!selected || selected.changedFeature.key !== challenge.targetFeature.key) {
+function validateHierarchy() {
+  const wrong = state.smileys.filter(smiley => smiley.zone !== smiley.expectedZone);
+  if (wrong.length) {
+    state.hierarchyHadMistake = true;
     state.mistakeStreak += 1;
     signalIncorrect();
-    const selectedNode = els.familyChildren.children[state.familySelectedIndex];
-    if (selectedNode) {
-      selectedNode.classList.remove("wiggle");
-      window.requestAnimationFrame(() => selectedNode.classList.add("wiggle"));
-    } else {
-      els.familyChildren.classList.remove("wiggle");
-      window.requestAnimationFrame(() => els.familyChildren.classList.add("wiggle"));
-    }
+    wrong.forEach(smiley => {
+      const node = document.querySelector(`[data-id="${CSS.escape(smiley.id)}"]`);
+      node?.classList.add("mistake-wiggle");
+    });
     return;
   }
   resetMistakeCounter();
   state.phase = "transitioning";
   lockSubmitButton();
-  els.familyPanel.classList.add("family-exiting");
-  if (state.familyRound === 2) celebrateCycle(900);
+  els.hierarchyPanel.classList.add("hierarchy-exiting");
   scheduleCycleTimer(() => {
-    state.familyRound = (state.familyRound + 1) % 3;
-    state.familyChallenge = makeFamilyChallenge();
-    state.familySelectedIndex = null;
-    state.phase = "family";
-    els.familyPanel.classList.remove("family-exiting");
-    els.familyPanel.classList.add("family-entering");
-    setHeader("Family Tree", `${state.familyRound + 1} of 3`);
-    renderFamilyChallenge();
+    state.hierarchyRound = (state.hierarchyRound + 1) % 3;
+    makeHierarchyChallenge();
+    state.phase = "hierarchy";
+    els.hierarchyPanel.classList.remove("hierarchy-exiting");
+    els.hierarchyPanel.classList.add("hierarchy-entering");
+    setHeader("Hierarchy", `${state.hierarchyRound + 1} of 3`);
+    renderHierarchyTree();
+    renderSmileys();
   }, 1250);
   scheduleCycleTimer(() => {
-    els.familyPanel.classList.remove("family-entering");
+    els.hierarchyPanel.classList.remove("hierarchy-entering");
     unlockSubmitButton();
   }, 2500);
 }
@@ -1430,7 +1443,7 @@ function reorderMissionMenu() {
     "statisticsMissionButton",
     "nestedMissionButton",
     "describeMissionButton",
-    "familyMissionButton"
+    "hierarchyMissionButton"
   ].forEach(id => {
     const button = document.getElementById(id);
     if (button) missionGrid.append(button);
@@ -1761,7 +1774,7 @@ function showSetup() {
   els.similarityPanel.classList.add("hidden");
   els.nestedPanel.classList.add("hidden");
   els.describePanel?.classList.add("hidden");
-  els.familyPanel?.classList.add("hidden");
+  els.hierarchyPanel?.classList.add("hidden");
   state.smileys = [];
   state.activeFeatures = [];
   state.activeOrderingCriteria = [];
@@ -2851,6 +2864,17 @@ function endDrag(event) {
     playInteractionSound("return");
     return;
   }
+  if (dropZone && smiley && shouldRejectHierarchyDrop(smiley, dropZone.dataset.zone)) {
+    const returnRects = new Map([[smiley.id, drag.node.getBoundingClientRect()]]);
+    restoreDraggedSmiley(smiley, drag);
+    cleanupDrag(drag);
+    renderSmileys();
+    animateSmileysFrom(returnRects, null, "fast");
+    markRejectedSmiley(smiley.id);
+    state.hierarchyHadMistake = true;
+    playInteractionSound("return");
+    return;
+  }
   if (dropZone && smiley && shouldRejectImplicitDrop(smiley, dropZone.dataset.zone)) {
     const returnRects = new Map([[smiley.id, drag.node.getBoundingClientRect()]]);
     restoreDraggedSmiley(smiley, drag);
@@ -2903,6 +2927,11 @@ function shouldRejectTeamDrop(smiley, zone) {
   if (!["team-source", "team-capture"].includes(zone)) return true;
   const [teamSize] = TEAM_PROGRESSION[state.teamLevel];
   return zone === "team-capture" && smiley.zone !== "team-capture" && getCurrentTeam().length >= teamSize;
+}
+
+function shouldRejectHierarchyDrop(smiley, zone) {
+  if (state.phase !== "hierarchy" || !zone?.startsWith("hierarchy-node-")) return false;
+  return state.smileys.some(item => item.id !== smiley.id && item.zone === zone);
 }
 
 function shouldRejectImplicitDrop(smiley, zone) {
@@ -3270,6 +3299,12 @@ function getDropTarget(x, y) {
       .find(zone => isPointInsideElement(zone, x, y));
     if (nestedTarget) return nestedTarget;
   }
+  if (state.phase === "hierarchy") {
+    const hierarchyTarget = getAllDropContainers()
+      .filter(zone => zone.classList.contains("hierarchy-drop-zone") || zone.classList.contains("smiley-tray"))
+      .find(zone => isPointInsideElement(zone, x, y));
+    if (hierarchyTarget) return hierarchyTarget;
+  }
   if (state.phase === "implicit") {
     const implicitTarget = getAllDropContainers()
       .filter(zone => zone.classList.contains("implicit-zone") || zone.classList.contains("smiley-tray"))
@@ -3310,6 +3345,9 @@ function getDropTarget(x, y) {
   }
   if (state.phase === "nested") {
     return element.closest(".nested-zone, .smiley-tray");
+  }
+  if (state.phase === "hierarchy") {
+    return element.closest(".hierarchy-drop-zone, .smiley-tray");
   }
   if (state.phase === "implicit") {
     return element.closest(".implicit-zone, .smiley-tray");
@@ -3370,8 +3408,8 @@ function validateCurrentPhase(skipCountOffer = false) {
     validateDescribe();
     return;
   }
-  if (state.phase === "family") {
-    validateFamily();
+  if (state.phase === "hierarchy") {
+    validateHierarchy();
     return;
   }
   if (state.phase === "permutation") {
@@ -8094,7 +8132,7 @@ function clearCycleTimers() {
     els.workPanel.classList.remove("average-round-entering");
     els.workPanel.classList.remove("photo-holding");
     els.describePanel?.classList.remove("describe-exiting", "describe-entering");
-    els.familyPanel?.classList.remove("family-exiting", "family-entering");
+    els.hierarchyPanel?.classList.remove("hierarchy-exiting", "hierarchy-entering");
     els.workPanel.classList.remove("is-celebrating");
     els.celebration.classList.add("hidden");
     document.querySelectorAll(".category-transition-ghost").forEach(node => node.remove());

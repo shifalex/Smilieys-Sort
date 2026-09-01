@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=describe-bridge-v269-20260901">
+    <link rel="stylesheet" href="styles.css?v=hierarchy-tree-v270-20260901">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -211,13 +211,13 @@
               </span>
               <span class="mission-word" aria-hidden="true">Describe?</span>
             </button>
-            <button class="mission-choice family-mission" type="button" id="familyMissionButton" aria-label="Family Tree">
-              <span class="family-sketch" aria-hidden="true">
-                <span class="family-sketch-parent"></span>
+            <button class="mission-choice hierarchy-mission" type="button" id="hierarchyMissionButton" aria-label="Hierarchy">
+              <span class="hierarchy-sketch" aria-hidden="true">
+                <span class="hierarchy-sketch-root"></span>
                 <i></i>
                 <span></span><span></span><span></span>
               </span>
-              <span class="mission-word" aria-hidden="true">Family Tree</span>
+              <span class="mission-word" aria-hidden="true">Hierarchy</span>
             </button>
           </div>
         </div>
@@ -466,13 +466,8 @@
           <div class="describe-choices" id="describeChoices" aria-label="Choose whether each category describes the smiley"></div>
         </div>
 
-        <div class="family-panel hidden" id="familyPanel">
-          <p class="family-prompt" id="familyPrompt"></p>
-          <div class="family-tree">
-            <div class="family-parent" id="familyParent" aria-label="Parent smiley"></div>
-            <div class="family-tree-lines" aria-hidden="true"><span></span><span></span><span></span></div>
-            <div class="family-children" id="familyChildren" aria-label="Choose the matching child"></div>
-          </div>
+        <div class="hierarchy-panel hidden" id="hierarchyPanel">
+          <div class="hierarchy-tree" id="hierarchyTree" aria-label="Binary hierarchy"></div>
         </div>
 
         <div class="action-row">
@@ -565,6 +560,6 @@
         document.body.append(notice);
       }
     </script>
-    <script type="module" src="app.js?v=describe-bridge-v269-20260901"></script>
+    <script type="module" src="app.js?v=hierarchy-tree-v270-20260901"></script>
   </body>
 </html>
