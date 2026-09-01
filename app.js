@@ -36,6 +36,7 @@ const SUCCESS_SMILEY_RETURN_MS = 2400;
 const AVERAGE_CELEBRATION_MS = 700;
 const AVERAGE_SLIDE_MS = 1050;
 const PHOTO_PREVIEW_MS = 600;
+const PHOTO_RETURN_MS = 1500;
 const TEAM_PROGRESSION = [[2, 3], [2, 4], [3, 4], [3, 5], [2, 5]];
 const SUCCESS_CATEGORY_FADE_OUT_MS = 400;
 const SUCCESS_CATEGORY_FADE_IN_MS = 440;
@@ -3308,6 +3309,7 @@ function animateSmileysFrom(previousRects, excludedId = null, speed = "normal") 
   const transitionBySpeed = {
     fast: "transform 180ms ease-out",
     pair: "transform 680ms cubic-bezier(0.22, 1, 0.36, 1)",
+    photo: `transform ${PHOTO_RETURN_MS}ms cubic-bezier(0.45, 0, 0.55, 1)`,
     cycle: "transform 2340ms cubic-bezier(0.45, 0, 0.55, 1)",
     counting: "transform 1140ms cubic-bezier(0.45, 0, 0.55, 1)",
     normal: "transform 2340ms cubic-bezier(0.45, 0, 0.55, 1)"
@@ -3332,6 +3334,8 @@ function animateSmileysFrom(previousRects, excludedId = null, speed = "normal") 
           ? "returning-fast"
           : speed === "pair"
             ? "returning-pair"
+          : speed === "photo"
+            ? "returning-photo"
           : speed === "cycle"
             ? "returning-cycle"
           : speed === "counting"
@@ -3344,6 +3348,7 @@ function animateSmileysFrom(previousRects, excludedId = null, speed = "normal") 
       node.classList.remove("returning");
       node.classList.remove("returning-fast");
       node.classList.remove("returning-pair");
+      node.classList.remove("returning-photo");
       node.classList.remove("returning-cycle");
       node.classList.remove("returning-counting");
       node.classList.remove("is-traveling");
@@ -5602,13 +5607,16 @@ function captureTeamPhoto() {
       smiley.placementOrder = smiley.originalOrder;
     });
     renderSmileys();
-    animateSmileysFrom(previousRects, null, "pair");
-    els.workPanel.classList.remove("photo-holding");
-    updateTeamCameraState();
-    if (state.teamAlbum.length >= getTeamGoal()) {
-      els.teamCameraButton.disabled = true;
-      window.setTimeout(unlockSubmitButton, 720);
-    }
+    animateSmileysFrom(previousRects, null, "photo");
+    scheduleCycleTimer(() => {
+      if (state.phase !== "team") return;
+      els.workPanel.classList.remove("photo-holding");
+      updateTeamCameraState();
+      if (state.teamAlbum.length >= getTeamGoal()) {
+        els.teamCameraButton.disabled = true;
+        unlockSubmitButton();
+      }
+    }, PHOTO_RETURN_MS);
   }, PHOTO_PREVIEW_MS);
 }
 
@@ -5758,18 +5766,19 @@ function capturePairCombinationPhoto() {
       smiley.placementOrder = smiley.originalOrder;
     });
     renderSmileys();
-    animateSmileysFrom(previousRects, null, "pair");
-    els.workPanel.classList.remove("photo-holding");
-    updatePairCombinationCameraState();
-    if (state.pairCombinationAlbum.length >= getPairCombinationGoal()) {
-      els.pairCameraButton.disabled = true;
-      window.setTimeout(() => {
+    animateSmileysFrom(previousRects, null, "photo");
+    scheduleCycleTimer(() => {
+      if (state.phase !== "pair-combination") return;
+      els.workPanel.classList.remove("photo-holding");
+      updatePairCombinationCameraState();
+      if (state.pairCombinationAlbum.length >= getPairCombinationGoal()) {
+        els.pairCameraButton.disabled = true;
         if (state.phase === "pair-combination" &&
             state.pairCombinationAlbum.length >= getPairCombinationGoal()) {
           unlockSubmitButton();
         }
-      }, 720);
-    }
+      }
+    }, PHOTO_RETURN_MS);
   }, PHOTO_PREVIEW_MS);
 }
 
