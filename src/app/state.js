@@ -39,6 +39,7 @@ export const state = {
   describeFeatures: [],
   describeAnswers: {},
   describeWrongKeys: [],
+  describeTutorialActive: false,
   familyRound: 0,
   familyChallenge: null,
   familySelectedIndex: null,

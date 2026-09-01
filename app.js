@@ -948,27 +948,23 @@ function startDescribeMission(clearPendingTimers = true) {
 }
 
 function prepareDescribeRound() {
-  const categoryCount = [1, 3, features.length][state.describeRound] || features.length;
   const previousKey = state.describeSmiley ? creatorSmileyKey(state.describeSmiley) : null;
   const candidates = shuffle(makeAllSmileyCombinations())
     .filter(smiley => creatorSmileyKey(smiley) !== previousKey);
   state.describeSmiley = makePlayableSmileys([candidates[0]])[0];
-  if (categoryCount === features.length) {
+  if (state.describeRound === 2) {
     state.describeFeatures = [...features];
-  } else if (categoryCount > 1) {
-    const matching = shuffle(features.filter(feature => feature.get(state.describeSmiley)));
+  } else if (state.describeRound === 1) {
     const notMatching = shuffle(features.filter(feature => !feature.get(state.describeSmiley)));
-    const contrasting = matching.length && notMatching.length ? [matching[0], notMatching[0]] : [];
-    const contrastingKeys = new Set(contrasting.map(feature => feature.key));
-    const remaining = shuffle(features.filter(feature => !contrastingKeys.has(feature.key)));
-    state.describeFeatures = contrasting.length
-      ? shuffle([...contrasting, ...remaining.slice(0, categoryCount - contrasting.length)])
-      : shuffle(features).slice(0, categoryCount);
+    state.describeFeatures = notMatching.slice(0, 1);
   } else {
     state.describeFeatures = shuffle(features).slice(0, 1);
   }
-  state.describeAnswers = {};
+  state.describeAnswers = state.describeRound === 0
+    ? {}
+    : Object.fromEntries(state.describeFeatures.map(feature => [feature.key, true]));
   state.describeWrongKeys = [];
+  state.describeTutorialActive = state.describeRound === 1;
 }
 
 function startDescribePhase() {
@@ -981,19 +977,17 @@ function startDescribePhase() {
   els.describePanel.classList.remove("hidden", "describe-exiting", "describe-entering");
   els.tray.replaceChildren();
   els.trayLabel.textContent = "";
-  setHeader("Describe?", `${state.describeRound + 1} of 3`);
+  setHeader("✓ / ✕", `${state.describeRound + 1} of 3`);
   els.submitSortButton.textContent = "OK";
   unlockSubmitButton();
   renderDescribeRound();
 }
 
 function renderDescribeRound() {
-  const prompts = [
-    "Choose ✓ if the category describes the smiley, or ✕ if it does not.",
-    "Choose ✓ or ✕ for each category.",
-    "Tap every category icon to put ✓ or ✕ on it."
-  ];
-  els.describePrompt.textContent = prompts[state.describeRound];
+  els.describePrompt.textContent = "";
+  els.describePrompt.setAttribute("aria-label", state.describeRound === 0
+    ? "Choose correct or incorrect"
+    : "Put an X on every category that does not describe the smiley");
   const smileyNode = createSmileyNode({ ...state.describeSmiley, id: `describe-${state.describeSmiley.id}` });
   smileyNode.setAttribute("tabindex", "-1");
   els.describeSmiley.replaceChildren(smileyNode);
@@ -1005,33 +999,44 @@ function renderDescribeRound() {
     card.dataset.featureKey = feature.key;
     card.classList.toggle("wiggle", state.describeWrongKeys.includes(feature.key));
     const answer = state.describeAnswers[feature.key];
-    const category = document.createElement(state.describeRound === 2 ? "button" : "div");
+    const category = document.createElement(state.describeRound > 0 ? "button" : "div");
     category.className = "describe-category";
-    if (state.describeRound === 2) {
+    if (state.describeRound > 0) {
       category.type = "button";
       category.classList.add("describe-icon-answer");
-      category.setAttribute("aria-label", `${feature.label}: ${typeof answer === "boolean" ? (answer ? "yes" : "no") : "not answered"}. Tap to change.`);
+      category.setAttribute("aria-label", `${feature.label}: ${answer === false ? "crossed out" : "not crossed out"}. Tap to change.`);
       category.addEventListener("click", () => {
-        state.describeAnswers[feature.key] = typeof answer !== "boolean" ? true : !answer;
+        state.describeAnswers[feature.key] = answer === false;
         state.describeWrongKeys = state.describeWrongKeys.filter(key => key !== feature.key);
+        state.describeTutorialActive = false;
         renderDescribeRound();
       });
     }
     const iconWrap = document.createElement("span");
     iconWrap.className = "describe-category-icon";
     iconWrap.append(createFeatureIcon(feature));
-    if ((state.describeRound === 2 && typeof answer === "boolean") || answer === false) {
+    if (answer === false) {
       const mark = document.createElement("span");
-      mark.className = `describe-category-mark ${answer ? "is-check" : "is-x"}`;
-      mark.textContent = answer ? "✓" : "✕";
+      mark.className = "describe-category-mark is-x";
+      mark.textContent = "✕";
       mark.setAttribute("aria-hidden", "true");
       iconWrap.append(mark);
     }
+    if (state.describeTutorialActive) {
+      const tutorialX = document.createElement("span");
+      tutorialX.className = "describe-category-mark is-x describe-tutorial-x";
+      tutorialX.textContent = "✕";
+      tutorialX.setAttribute("aria-hidden", "true");
+      iconWrap.append(tutorialX);
+    }
     category.append(iconWrap);
-    const label = document.createElement("strong");
-    label.textContent = feature.label;
-    category.append(label);
-    if (state.describeRound === 2) {
+    if (state.describeTutorialActive) {
+      const pointer = document.createElement("span");
+      pointer.className = "describe-tutorial-pointer";
+      pointer.setAttribute("aria-hidden", "true");
+      category.append(pointer);
+    }
+    if (state.describeRound > 0) {
       card.append(category);
       els.describeChoices.append(card);
       return;
@@ -1084,7 +1089,7 @@ function validateDescribe() {
     state.phase = "describe";
     els.describePanel.classList.remove("describe-exiting");
     els.describePanel.classList.add("describe-entering");
-    setHeader("Describe?", `${state.describeRound + 1} of 3`);
+    setHeader("✓ / ✕", `${state.describeRound + 1} of 3`);
     renderDescribeRound();
   }, 650);
   scheduleCycleTimer(() => {
