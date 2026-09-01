@@ -89,6 +89,7 @@ function init() {
   els.compareMissionButton.addEventListener("click", () => startCompareMission());
   els.simpleCompareMissionButton.addEventListener("click", () => startSimpleCompareMission());
   els.describeMissionButton?.addEventListener("click", () => startDescribeMission());
+  els.familyMissionButton?.addEventListener("click", () => startFamilyMission());
   els.permutationMissionButton.addEventListener("click", () => startPermutationMission());
   els.pairCombinationMissionButton.addEventListener("click", () => startPairCombinationMission());
   els.teamMissionButton?.addEventListener("click", () => startTeamMission());
@@ -1092,6 +1093,123 @@ function validateDescribe() {
   }, 1300);
 }
 
+function startFamilyMission(clearPendingTimers = true) {
+  if (clearPendingTimers) clearCycleTimers();
+  state.mission = "family";
+  state.phase = "family";
+  state.familyRound = 0;
+  state.smileys = [];
+  state.countChallenge = null;
+  resetMistakeCounter();
+  state.familyChallenge = makeFamilyChallenge();
+  state.familySelectedIndex = null;
+  els.setupPanel.classList.add("hidden");
+  els.workPanel.classList.remove("hidden");
+  els.backButton.classList.remove("hidden");
+  startFamilyPhase();
+}
+
+function makeFamilyChallenge() {
+  const parentRaw = shuffle(makeAllSmileyCombinations())[0];
+  const changedFeatures = shuffle(features).slice(0, 3);
+  const targetFeature = changedFeatures[0];
+  const childRaws = changedFeatures.map(feature => toggleFamilyFeature(parentRaw, feature.key));
+  const playable = makePlayableSmileys([parentRaw, ...childRaws]);
+  const children = shuffle(playable.slice(1).map((smiley, index) => ({
+    smiley,
+    changedFeature: changedFeatures[index]
+  })));
+  return { parent: playable[0], children, targetFeature };
+}
+
+function toggleFamilyFeature(smiley, featureKey) {
+  const child = { ...smiley };
+  if (featureKey === "shape") child.shape = smiley.shape === "round" ? "square" : "round";
+  if (featureKey === "color") child.color = smiley.color === "yellow" ? "red" : "yellow";
+  if (featureKey === "expression") child.expression = smiley.expression === "smile" ? "neutral" : "smile";
+  if (featureKey === "hat") child.hat = !smiley.hat;
+  if (featureKey === "ears") child.ears = !smiley.ears;
+  return child;
+}
+
+function startFamilyPhase() {
+  state.phase = "family";
+  [els.sortTable, els.orderingPanel, els.statisticsPanel, els.carrollPanel, els.comparePanel,
+    els.simpleComparePanel, els.permutationPanel, els.pairCombinationPanel, els.teamPanel,
+    els.selectionPanel, els.creatorPanel, els.vennPanel, els.nestedPanel, els.implicitPanel,
+    els.countingPanel, els.similarityPanel, els.describePanel]
+    .forEach(panel => panel?.classList.add("hidden"));
+  els.familyPanel.classList.remove("hidden", "family-exiting", "family-entering");
+  els.tray.replaceChildren();
+  els.trayLabel.textContent = "";
+  setHeader("Family Tree", `${state.familyRound + 1} of 3`);
+  els.submitSortButton.textContent = "OK";
+  unlockSubmitButton();
+  renderFamilyChallenge();
+}
+
+function renderFamilyChallenge() {
+  const challenge = state.familyChallenge;
+  els.familyPrompt.replaceChildren(
+    document.createTextNode("Which child differs from the parent only in "),
+    createFeatureIcon(challenge.targetFeature),
+    document.createTextNode("?")
+  );
+  els.familyParent.replaceChildren(createStaticSmileyNode(challenge.parent));
+  els.familyChildren.replaceChildren();
+  challenge.children.forEach((child, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "family-child";
+    button.classList.toggle("is-selected", state.familySelectedIndex === index);
+    button.setAttribute("aria-pressed", String(state.familySelectedIndex === index));
+    button.setAttribute("aria-label", `Child ${index + 1}`);
+    button.append(createStaticSmileyNode(child.smiley));
+    button.addEventListener("click", () => {
+      state.familySelectedIndex = index;
+      renderFamilyChallenge();
+    });
+    els.familyChildren.append(button);
+  });
+}
+
+function validateFamily() {
+  const challenge = state.familyChallenge;
+  const selected = challenge.children[state.familySelectedIndex];
+  if (!selected || selected.changedFeature.key !== challenge.targetFeature.key) {
+    state.mistakeStreak += 1;
+    signalIncorrect();
+    const selectedNode = els.familyChildren.children[state.familySelectedIndex];
+    if (selectedNode) {
+      selectedNode.classList.remove("wiggle");
+      window.requestAnimationFrame(() => selectedNode.classList.add("wiggle"));
+    } else {
+      els.familyChildren.classList.remove("wiggle");
+      window.requestAnimationFrame(() => els.familyChildren.classList.add("wiggle"));
+    }
+    return;
+  }
+  resetMistakeCounter();
+  state.phase = "transitioning";
+  lockSubmitButton();
+  els.familyPanel.classList.add("family-exiting");
+  if (state.familyRound === 2) celebrateCycle(900);
+  scheduleCycleTimer(() => {
+    state.familyRound = (state.familyRound + 1) % 3;
+    state.familyChallenge = makeFamilyChallenge();
+    state.familySelectedIndex = null;
+    state.phase = "family";
+    els.familyPanel.classList.remove("family-exiting");
+    els.familyPanel.classList.add("family-entering");
+    setHeader("Family Tree", `${state.familyRound + 1} of 3`);
+    renderFamilyChallenge();
+  }, 1250);
+  scheduleCycleTimer(() => {
+    els.familyPanel.classList.remove("family-entering");
+    unlockSubmitButton();
+  }, 2500);
+}
+
 function startStatisticsMission(clearPendingTimers = true) {
   if (clearPendingTimers) {
     clearCycleTimers();
@@ -1306,7 +1424,8 @@ function reorderMissionMenu() {
     "averageMissionButton",
     "statisticsMissionButton",
     "nestedMissionButton",
-    "describeMissionButton"
+    "describeMissionButton",
+    "familyMissionButton"
   ].forEach(id => {
     const button = document.getElementById(id);
     if (button) missionGrid.append(button);
@@ -1637,6 +1756,7 @@ function showSetup() {
   els.similarityPanel.classList.add("hidden");
   els.nestedPanel.classList.add("hidden");
   els.describePanel?.classList.add("hidden");
+  els.familyPanel?.classList.add("hidden");
   state.smileys = [];
   state.activeFeatures = [];
   state.activeOrderingCriteria = [];
@@ -3243,6 +3363,10 @@ function validateCurrentPhase(skipCountOffer = false) {
   }
   if (state.phase === "describe") {
     validateDescribe();
+    return;
+  }
+  if (state.phase === "family") {
+    validateFamily();
     return;
   }
   if (state.phase === "permutation") {
@@ -7965,6 +8089,7 @@ function clearCycleTimers() {
     els.workPanel.classList.remove("average-round-entering");
     els.workPanel.classList.remove("photo-holding");
     els.describePanel?.classList.remove("describe-exiting", "describe-entering");
+    els.familyPanel?.classList.remove("family-exiting", "family-entering");
     els.workPanel.classList.remove("is-celebrating");
     els.celebration.classList.add("hidden");
     document.querySelectorAll(".category-transition-ghost").forEach(node => node.remove());
