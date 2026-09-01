@@ -1439,6 +1439,14 @@ h2 {
   animation: similarity-smiley-exit 1250ms cubic-bezier(0.55, 0, 0.1, 1) both;
 }
 
+.similarity-panel.similarity-exiting .similarity-smiley {
+  animation: similarity-smiley-exit 1250ms cubic-bezier(0.55, 0, 0.1, 1) both;
+}
+
+.similarity-panel.similarity-entering .similarity-smiley {
+  animation: similarity-smiley-enter 1250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .work-panel.smileys-wiggling .similarity-panel .similarity-smiley {
   animation: similarity-smiley-wiggle 640ms ease-in-out infinite;
 }

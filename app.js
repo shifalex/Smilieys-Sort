@@ -4506,7 +4506,7 @@ function validateSimilarity() {
     selectedButton?.classList.add("is-correct");
     playInteractionSound("drop");
     resetMistakeCounter();
-    finishSet(new Map());
+    advanceSimilarityChallenge();
     return;
   }
 
@@ -4518,6 +4518,26 @@ function validateSimilarity() {
   window.setTimeout(() => {
     if (state.phase === "similarity") renderSimilarityChallenge();
   }, 420);
+}
+
+function advanceSimilarityChallenge() {
+  if (state.phase === "transitioning") return;
+  state.phase = "transitioning";
+  lockSubmitButton();
+  els.similarityPanel.classList.remove("similarity-entering");
+  els.similarityPanel.classList.add("similarity-exiting");
+
+  window.setTimeout(() => {
+    state.similarityChallenge = makeSimilarityChallenge();
+    state.similaritySelectedIndex = null;
+    state.phase = "similarity";
+    els.similarityPanel.classList.remove("similarity-exiting");
+    els.similarityPanel.classList.add("similarity-entering");
+    renderSimilarityChallenge();
+    window.setTimeout(() => {
+      els.similarityPanel.classList.remove("similarity-entering");
+    }, 1250);
+  }, 1250);
 }
 
 function startOrderingPhase(previousRects = null) {
