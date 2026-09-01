@@ -6070,7 +6070,7 @@ function renderPairCombinationAlbum() {
   els.pairAlbumPages.replaceChildren();
   const page = document.createElement("div");
   page.className = "album-page";
-  page.style.setProperty("--album-columns", "2");
+  page.style.setProperty("--album-columns", "3");
   for (let index = 0; index < 6; index += 1) {
     const photo = state.pairCombinationAlbum[index];
     const slot = document.createElement("div");

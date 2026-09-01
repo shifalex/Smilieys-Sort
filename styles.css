@@ -3613,14 +3613,14 @@ html:not(.layout-lighting-off) .permutation-source-zone.is-over {
 
 .album-pages {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin-top: 14px;
 }
 
 .album-page {
   display: grid;
-  grid-template-columns: repeat(var(--album-columns, 2), minmax(0, 1fr));
+  grid-template-columns: repeat(var(--album-columns, 3), minmax(0, 1fr));
   grid-auto-rows: minmax(116px, auto);
   gap: 14px;
   border: 1px solid rgba(201, 212, 223, 0.75);
