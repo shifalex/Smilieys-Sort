@@ -1208,7 +1208,7 @@ function startHierarchyPhase() {
   renderSmileys();
 }
 
-function renderHierarchyTree() {
+function renderHierarchyTree(showRoot = true) {
   els.hierarchyTree.replaceChildren();
   const positions = [{ x: 50, y: 0 }, ...state.hierarchyNodes.map(({ x, y }) => ({ x, y }))];
   const branches = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -1228,11 +1228,12 @@ function renderHierarchyTree() {
   for (let index = 0; index < positions.length; index += 1) {
     const node = document.createElement("div");
     node.className = "hierarchy-node";
+    node.dataset.hierarchyIndex = String(index);
     node.style.setProperty("--tree-x", `${positions[index].x}%`);
     node.style.setProperty("--tree-y", `${positions[index].y}%`);
     if (index === 0) {
       node.classList.add("is-root");
-      node.append(createStaticSmileyNode(state.hierarchyRoot));
+      if (showRoot) node.append(createStaticSmileyNode(state.hierarchyRoot));
     } else {
       node.classList.add("hierarchy-drop-zone");
       node.dataset.zone = `hierarchy-node-${index}`;
@@ -1289,22 +1290,69 @@ function validateHierarchy() {
   resetMistakeCounter();
   state.phase = "transitioning";
   lockSubmitButton();
-  els.hierarchyPanel.classList.add("hierarchy-exiting");
+  markHierarchySmileysDeparting();
+  els.workPanel.classList.add("smileys-exiting");
   scheduleCycleTimer(() => {
     state.hierarchyRound = (state.hierarchyRound + 1) % 3;
     if (state.hierarchyRound === 0) state.hierarchySeenRoots = [];
     makeHierarchyChallenge();
-    state.phase = "hierarchy";
-    els.hierarchyPanel.classList.remove("hierarchy-exiting");
-    els.hierarchyPanel.classList.add("hierarchy-entering");
     setHeader("Hierarchy", `${state.hierarchyRound + 1} of 3`);
-    renderHierarchyTree();
+    renderHierarchyTree(false);
+    state.enteringSmileyIds = state.smileys.map(smiley => smiley.id);
     renderSmileys();
-  }, 1250);
+    const stagingRoot = createStaticSmileyNode(state.hierarchyRoot);
+    stagingRoot.classList.add("hierarchy-root-staging", "is-cycle-entering");
+    els.tray.append(stagingRoot);
+    els.workPanel.classList.remove("smileys-exiting");
+    els.workPanel.classList.add("cycle-fading-in");
+  }, ROOM_EXIT_MS);
   scheduleCycleTimer(() => {
-    els.hierarchyPanel.classList.remove("hierarchy-entering");
+    els.workPanel.classList.remove("cycle-fading-in");
+    state.enteringSmileyIds = [];
+    moveHierarchyRootIntoTree();
+  }, ROOM_EXIT_MS + CYCLE_ENTER_MS);
+  scheduleCycleTimer(() => {
+    state.phase = "hierarchy";
     unlockSubmitButton();
-  }, 2500);
+  }, ROOM_EXIT_MS + CYCLE_ENTER_MS + 950);
+}
+
+function markHierarchySmileysDeparting() {
+  const nodes = [
+    ...els.hierarchyPanel.querySelectorAll(".smiley"),
+    ...els.tray.querySelectorAll(".smiley")
+  ];
+  nodes.forEach(node => {
+    node.classList.add("is-cycle-departing");
+    const hand = document.createElement("span");
+    hand.className = "goodbye-hand";
+    hand.textContent = "👋";
+    hand.setAttribute("aria-hidden", "true");
+    node.append(hand);
+  });
+}
+
+function moveHierarchyRootIntoTree() {
+  const stagingRoot = els.tray.querySelector(".hierarchy-root-staging");
+  const target = els.hierarchyTree.querySelector('[data-hierarchy-index="0"]');
+  if (!stagingRoot || !target) return;
+  const oldRect = stagingRoot.getBoundingClientRect();
+  stagingRoot.remove();
+  const root = createStaticSmileyNode(state.hierarchyRoot);
+  root.classList.add("is-traveling", "hierarchy-root-arriving");
+  target.append(root);
+  const newRect = root.getBoundingClientRect();
+  root.style.transition = "none";
+  root.style.transform = `translate(${oldRect.left - newRect.left}px, ${oldRect.top - newRect.top}px)`;
+  root.getBoundingClientRect();
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+    root.style.transition = "transform 900ms cubic-bezier(0.22, 1, 0.36, 1)";
+    root.style.transform = "";
+  }));
+  root.addEventListener("transitionend", () => {
+    root.classList.remove("is-traveling", "hierarchy-root-arriving");
+    root.style.transition = "";
+  }, { once: true });
 }
 
 function hierarchyDifferenceCount(first, second) {
@@ -8225,6 +8273,7 @@ function clearCycleTimers() {
     els.workPanel.classList.remove("photo-holding");
     els.describePanel?.classList.remove("describe-exiting", "describe-entering");
     els.hierarchyPanel?.classList.remove("hierarchy-exiting", "hierarchy-entering");
+    document.querySelectorAll(".hierarchy-root-staging").forEach(node => node.remove());
     els.workPanel.classList.remove("is-celebrating");
     els.celebration.classList.add("hidden");
     document.querySelectorAll(".category-transition-ghost").forEach(node => node.remove());

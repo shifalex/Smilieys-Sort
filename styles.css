@@ -8115,6 +8115,15 @@ body:has(.setup-panel:not(.hidden)) .count-check-dialog {
   transform: translate(-50%, -50%) scale(1.04);
 }
 
+.hierarchy-root-staging {
+  pointer-events: none;
+}
+
+.hierarchy-root-arriving {
+  z-index: 8;
+  pointer-events: none;
+}
+
 .hierarchy-lines {
   position: absolute;
   inset: 0;
