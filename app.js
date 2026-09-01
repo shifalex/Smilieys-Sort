@@ -1820,6 +1820,7 @@ function showSetup() {
   els.nestedPanel.classList.add("hidden");
   els.describePanel?.classList.add("hidden");
   els.hierarchyPanel?.classList.add("hidden");
+  els.actionRow.append(els.submitSortButton);
   state.smileys = [];
   state.activeFeatures = [];
   state.activeOrderingCriteria = [];
@@ -6521,6 +6522,7 @@ function startSelectionPhase(previousRects = null) {
   els.vennStage.classList.toggle("two-circle", state.activeVennCriteria.length <= 2);
   setHeader("Select", `${state.setCycle + 1} of ${state.reuseGoal}`);
   els.submitSortButton.textContent = "OK";
+  els.selectionOkSlot.append(els.submitSortButton);
   unlockSubmitButton();
   renderSelectionHint();
   renderSmileys();

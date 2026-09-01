@@ -2469,6 +2469,14 @@ html:not(.layout-lighting-off) .coin-bank.is-over {
     top: 2px;
     right: 4px;
   }
+
+  .selection-submit-row {
+    gap: 8px;
+  }
+
+  .selection-ok-slot .submit-sort-button {
+    width: 92px;
+  }
 }
 
 .local-launch-notice {
@@ -2523,7 +2531,7 @@ html:not(.layout-lighting-off) .coin-bank.is-over {
   gap: 10px;
   min-height: 124px;
   width: min(440px, 100%);
-  margin: 0 auto;
+  margin: 0;
   border: 2px dashed var(--blue);
   border-radius: 8px;
   background:
@@ -2531,6 +2539,31 @@ html:not(.layout-lighting-off) .coin-bank.is-over {
     rgba(255, 255, 255, 0.74);
   padding: 8px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.74);
+}
+
+.selection-submit-row {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.work-panel:has(.selection-panel:not(.hidden)) .selection-submit-row {
+  display: flex;
+}
+
+.selection-ok-slot {
+  flex: 0 0 auto;
+}
+
+.selection-ok-slot .submit-sort-button {
+  width: clamp(110px, 15vw, 180px);
+  margin: 0;
+}
+
+.work-panel:has(.selection-panel:not(.hidden)) > .action-row {
+  display: none;
 }
 
 .work-panel:has(.selection-panel:not(.hidden)) .selection-target-zone {

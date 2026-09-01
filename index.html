@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=compact-hierarchy-v273-20260901">
+    <link rel="stylesheet" href="styles.css?v=select-ok-row-v274-20260901">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -409,7 +409,10 @@
               <span class="selection-mode-option is-play">Play</span>
             </button>
           </div>
-          <div class="selection-target-zone" id="selectionTargetZone" data-zone="selection-target" aria-label="Selection target"></div>
+          <div class="selection-submit-row">
+            <div class="selection-target-zone" id="selectionTargetZone" data-zone="selection-target" aria-label="Selection target"></div>
+            <div class="selection-ok-slot" id="selectionOkSlot"></div>
+          </div>
         </div>
 
         <div class="nested-panel hidden" id="nestedPanel">
@@ -470,7 +473,7 @@
           <div class="hierarchy-tree" id="hierarchyTree" aria-label="Binary hierarchy"></div>
         </div>
 
-        <div class="action-row">
+        <div class="action-row" id="actionRow">
           <div class="counting-prompt" aria-label="Counting directions">
             <p class="counting-question" id="countingQuestion"></p>
             <div class="counting-answer-row" id="countingAnswers" aria-label="Counting answers"></div>
@@ -560,6 +563,6 @@
         document.body.append(notice);
       }
     </script>
-    <script type="module" src="app.js?v=compact-hierarchy-v273-20260901"></script>
+    <script type="module" src="app.js?v=select-ok-row-v274-20260901"></script>
   </body>
 </html>

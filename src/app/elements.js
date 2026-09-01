@@ -107,6 +107,8 @@ export const els = {
   selectionStage: document.querySelector("#selectionStage"),
   selectionCaption: document.querySelector("#selectionCaption"),
   selectionTargetZone: document.querySelector("#selectionTargetZone"),
+  selectionOkSlot: document.querySelector("#selectionOkSlot"),
+  actionRow: document.querySelector("#actionRow"),
   creatorPanel: document.querySelector("#creatorPanel"),
   creatorCriteriaBank: document.querySelector("#creatorCriteriaBank"),
   creatorSmileyTarget: document.querySelector("#creatorSmileyTarget"),
