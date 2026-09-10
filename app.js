@@ -145,6 +145,8 @@ function setupSettingsMenu() {
   const syncIconColors = () => {
     document.documentElement.classList.toggle("colorful-category-icons", colorful);
     iconColorButton?.setAttribute("aria-checked", String(colorful));
+    iconColorButton?.classList.toggle("is-on", colorful);
+    if (iconColorButton) iconColorButton.title = colorful ? "Colorful category icons — switch to gray" : "Gray category icons — switch to color";
   };
   syncIconColors();
   iconColorButton?.addEventListener("click", () => {

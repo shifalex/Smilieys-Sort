@@ -8537,3 +8537,5 @@ body:has(.setup-panel:not(.hidden)) .count-check-dialog {
 .colorful-category-icons .ears-icon > span:not(.red-x) { border-color:#3b2f23; background:var(--gold); }
 
 .teams-album-sketch span { background:radial-gradient(circle at 26% 50%,white 0 10%,transparent 12%),radial-gradient(circle at 50% 50%,white 0 10%,transparent 12%),radial-gradient(circle at 74% 50%,white 0 10%,transparent 12%),rgba(255,255,255,.18); }
+
+.settings-hat-preview { transform:scale(.48); transform-origin:center; width:58px; height:58px; pointer-events:none; }
