@@ -19,6 +19,7 @@ export const els = {
   compareMissionButton: document.querySelector("#compareMissionButton"),
   simpleCompareMissionButton: document.querySelector("#simpleCompareMissionButton"),
   describeMissionButton: document.querySelector("#describeMissionButton"),
+  describeCategoriesMissionButton: document.querySelector("#describeCategoriesMissionButton"),
   hierarchyMissionButton: document.querySelector("#hierarchyMissionButton"),
   permutationMissionButton: document.querySelector("#permutationMissionButton"),
   pairCombinationMissionButton: document.querySelector("#pairCombinationMissionButton"),

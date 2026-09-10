@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=feature-count-v283-20260901">
+    <link rel="stylesheet" href="styles.css?v=menu-icons-v285-20260910">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -59,6 +59,7 @@
                   <path class="settings-icon-fill" d="M13 11h6v4h-6z"></path>
                 </svg>
               </button>
+              <button class="settings-toggle" type="button" id="iconColorSetting" role="switch" aria-label="Colorful category icons" aria-checked="true" title="Colorful category icons"><span aria-hidden="true">🎨</span></button>
               <button class="settings-toggle" type="button" id="soundSetting" role="switch" aria-label="Sounds" aria-checked="true" title="Sounds">
                 <svg class="settings-icon" viewBox="0 0 32 32" aria-hidden="true">
                   <path class="settings-icon-fill" d="M5 13h5l7-6v18l-7-6H5z"></path>
@@ -92,6 +93,14 @@
           <p class="home-greeting hidden">Hey, we are in the smileys sorting game :)</p>
           <h2 class="hidden">Choose mission</h2>
           <div class="mission-grid" aria-label="Choose mission">
+            <button class="mission-choice describe-mission" type="button" id="describeMissionButton" aria-label="Does it belong?: Guided questions">
+              <span class="describe-menu-icon" aria-hidden="true"><span class="feature-icon expression-icon"><span></span></span><b>?</b></span>
+              <span class="mission-word" aria-hidden="true">Does it belong?</span>
+            </button>
+            <button class="mission-choice describe-mission" type="button" id="describeCategoriesMissionButton" aria-label="Describe it: Mark categories">
+              <span class="describe-menu-checklist" aria-hidden="true"><span>● <b>✓</b></span><span>◼ <b>✕</b></span><span>⌒ <b>✓</b></span></span>
+              <span class="mission-word" aria-hidden="true">Describe it</span>
+            </button>
             <button class="mission-choice feature-mission" type="button" id="featureMissionButton" aria-label="Feature Sort">
               <span class="feature-sort-sketch" aria-hidden="true">
                 <span class="choice-sketch sketch-face"></span>
@@ -198,18 +207,8 @@
               <span class="mission-word" aria-hidden="true">Counting</span>
             </button>
             <button class="mission-choice team-mission" type="button" id="teamMissionButton" aria-label="Choose teams">
-              <span class="team-sketch" aria-hidden="true">
-                <span class="team-photo-face is-yellow"><i></i></span>
-                <span class="team-photo-face is-red"><i></i></span>
-                <span class="team-photo-face is-square"><i></i></span>
-              </span>
+              <span class="album-sketch teams-album-sketch" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
               <span class="mission-word" aria-hidden="true">Teams</span>
-            </button>
-            <button class="mission-choice describe-mission" type="button" id="describeMissionButton" aria-label="Practice choosing categories that describe a smiley">
-              <span class="describe-sketch" aria-hidden="true">
-                <span>✓</span><span>?</span><span>✕</span>
-              </span>
-              <span class="mission-word" aria-hidden="true">Describe?</span>
             </button>
             <button class="mission-choice hierarchy-mission" type="button" id="hierarchyMissionButton" aria-label="Hierarchy">
               <span class="hierarchy-sketch" aria-hidden="true">
@@ -563,6 +562,6 @@
         document.body.append(notice);
       }
     </script>
-    <script type="module" src="app.js?v=feature-count-v283-20260901"></script>
+    <script type="module" src="app.js?v=menu-icons-v285-20260910"></script>
   </body>
 </html>
