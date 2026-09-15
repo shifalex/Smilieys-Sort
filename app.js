@@ -57,6 +57,9 @@ let vennMotionLabDirection = 1;
 let comparisonTutorialSequence = 0;
 let lastSubmitTouchTime = 0;
 let finishSortRotation = null;
+let featureCelebrationCount = 0;
+let featureTransitionActive = false;
+let cycleGeneration = 0;
 
 function init() {
   document.documentElement.classList.toggle("visual-relation-icons", USE_VISUAL_RELATION_ICONS);
@@ -187,8 +190,17 @@ function setSortGroupDimensions(horizontal, dimension = null) {
   });
 }
 
-async function rotateSortLayout(button) {
-  if (state.phase !== "sorting" || state.smileyDrags.size || state.dragging || finishSortRotation) return;
+function updateSortRotationButton(horizontal) {
+  const button = document.querySelector("#sortRotateButton");
+  const label = horizontal ? "Switch to columns" : "Switch to rows";
+  button.querySelector(".sort-rotate-label").textContent = label;
+  button.querySelector(".sort-rotate-symbol").textContent = horizontal ? "↻" : "↺";
+  button.title = label;
+}
+
+async function rotateSortLayout(button, automatic = false) {
+  const allowedPhase = state.phase === "sorting" || (automatic && state.phase === "transitioning");
+  if (!allowedPhase || state.smileyDrags.size || state.dragging || finishSortRotation) return;
   // Unlock audio during the click, before the resize animation yields.
   if (state.soundEnabled) {
     try { getAudioContext()?.resume().catch(() => {}); } catch {}
@@ -197,12 +209,7 @@ async function rotateSortLayout(button) {
   if (!table.classList.contains("has-group-sizes")) sizeSortGroups();
   const groups = [...table.querySelectorAll(".sort-group")];
   const horizontal = !table.classList.contains("is-horizontal");
-  const updateButton = () => {
-    const label = horizontal ? "Switch to columns" : "Switch to rows";
-    button.querySelector(".sort-rotate-label").textContent = label;
-    button.querySelector(".sort-rotate-symbol").textContent = horizontal ? "↻" : "↺";
-    button.title = label;
-  };
+  const updateButton = () => updateSortRotationButton(horizontal);
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     setSortGroupDimensions(horizontal);
     table.classList.toggle("is-horizontal", horizontal);
@@ -1063,6 +1070,9 @@ function startSet(count, clearPendingTimers = true) {
   const previousSmileys = !clearPendingTimers && state.mission === "feature" ? state.smileys : rememberedSmileys;
   if (clearPendingTimers) {
     clearCycleTimers();
+    featureCelebrationCount = 0;
+    els.sortTable.classList.remove("is-horizontal", "has-group-sizes");
+    updateSortRotationButton(false);
   }
   els.workPanel.classList.remove("cycle-fading-out");
   const featureCount = featureCountForSmileyCount(count);
@@ -4676,7 +4686,7 @@ function finishFeatureCycle() {
   }
 
   const nextCount = randomFeatureSmileyCount(state.smileys.length);
-  runNewSmileysCycleTransition(() => startSet(nextCount, false));
+  runNewSmileysCycleTransition(() => startSet(nextCount, false), { featureOrientation: true });
 }
 
 function transitionToNextFeatureQuestion() {
@@ -8034,6 +8044,7 @@ function finishAverageCycle() {
 }
 
 function runNewSmileysCycleTransition(startNextRound, options = {}) {
+  const featureOrientation = options.featureOrientation === true;
   const animateSmileys = options.animateSmileys !== false;
   const fadeCategories = options.fadeCategories !== false;
   const returnHomeDuration = animateSmileys ? SUCCESS_SMILEY_RETURN_MS : 0;
@@ -8047,6 +8058,7 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
   const fadeInStartDelay = fadeOutStartDelay + SUCCESS_CATEGORY_FADE_OUT_MS;
   const finalWiggleStartDelay = fadeInStartDelay + SUCCESS_CATEGORY_FADE_IN_MS;
   let categoryGhosts = [];
+  let nextFeatureHeaders = [];
 
   state.phase = "celebrating";
   els.workPanel.classList.add("is-celebrating");
@@ -8074,11 +8086,20 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
   }
 
   scheduleCycleTimer(() => {
-    if (fadeCategories) {
+    const previousFeatureHeaders = featureOrientation ? captureFeatureHeaders() : [];
+    if (fadeCategories && !featureOrientation) {
       categoryGhosts = createCategoryTransitionGhosts();
       els.workPanel.classList.add("criteria-held-hidden");
     }
     startNextRound();
+    if (featureOrientation) {
+      nextFeatureHeaders = captureFeatureHeaders();
+      restoreFeatureHeaders(previousFeatureHeaders);
+      featureTransitionActive = true;
+      state.phase = "transitioning";
+      els.workPanel.inert = true;
+      lockSubmitButton();
+    }
     state.departingSmileyIds = [];
     els.workPanel.classList.remove("is-celebrating");
     els.workPanel.classList.remove("smileys-wiggling");
@@ -8094,6 +8115,11 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
       els.workPanel.classList.remove("cycle-fading-in");
       state.enteringSmileyIds = [];
     }, categoryWiggleStartDelay);
+  }
+
+  if (featureOrientation) {
+    scheduleCycleTimer(() => finishFeatureRoomEntry(nextFeatureHeaders), categoryWiggleStartDelay);
+    return;
   }
 
   if (fadeCategories) {
@@ -8124,6 +8150,53 @@ function runNewSmileysCycleTransition(startNextRound, options = {}) {
       els.workPanel.classList.remove("criteria-wiggling");
     }, finalWiggleStartDelay + CATEGORY_WIGGLE_MS);
   }
+}
+
+function captureFeatureHeaders() {
+  return [els.withHeader, els.withoutHeader].map(header => ({
+    header, children: [...header.childNodes], label: header.getAttribute("aria-label")
+  }));
+}
+
+function restoreFeatureHeaders(headers) {
+  headers.forEach(({ header, children, label }) => {
+    header.replaceChildren(...children);
+    if (label === null) header.removeAttribute("aria-label");
+    else header.setAttribute("aria-label", label);
+  });
+}
+
+async function finishFeatureRoomEntry(nextHeaders) {
+  const generation = cycleGeneration;
+  const current = els.sortTable.classList.contains("is-horizontal");
+  featureCelebrationCount += 1;
+  const target = featureCelebrationCount === 1 ? true : (Math.random() < 0.5 ? !current : current);
+  if (target !== current) {
+    await rotateSortLayout(document.querySelector("#sortRotateButton"), true);
+  }
+  // Leaving the room or restarting while the animation awaits cancels this continuation.
+  if (generation !== cycleGeneration || state.mission !== "feature" || !featureTransitionActive) return;
+  els.workPanel.classList.add("criteria-wiggling");
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("criteria-wiggling");
+    els.workPanel.classList.add("criteria-fading-out");
+  }, CATEGORY_WIGGLE_MS);
+  scheduleCycleTimer(() => {
+    restoreFeatureHeaders(nextHeaders);
+    els.workPanel.classList.remove("criteria-fading-out");
+    els.workPanel.classList.add("criteria-fading-in");
+  }, CATEGORY_WIGGLE_MS + SUCCESS_CATEGORY_FADE_OUT_MS);
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("criteria-fading-in");
+    els.workPanel.classList.add("criteria-wiggling");
+  }, CATEGORY_WIGGLE_MS + SUCCESS_CATEGORY_FADE_OUT_MS + SUCCESS_CATEGORY_FADE_IN_MS);
+  scheduleCycleTimer(() => {
+    els.workPanel.classList.remove("criteria-wiggling");
+    featureTransitionActive = false;
+    els.workPanel.inert = false;
+    state.phase = "sorting";
+    unlockSubmitButton();
+  }, CATEGORY_WIGGLE_MS * 2 + SUCCESS_CATEGORY_FADE_OUT_MS + SUCCESS_CATEGORY_FADE_IN_MS);
 }
 
 function finishSelectionCycle() {
@@ -8566,6 +8639,12 @@ function scheduleCycleTimer(callback, delay) {
 }
 
 function clearCycleTimers() {
+  cycleGeneration += 1;
+  finishSortRotation?.();
+  if (featureTransitionActive) {
+    featureTransitionActive = false;
+    els.workPanel.inert = false;
+  }
   state.cycleTimers.forEach(timer => window.clearTimeout(timer));
   state.cycleTimers = [];
   stopComparisonIconTutorial();
