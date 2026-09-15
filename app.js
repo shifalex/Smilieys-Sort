@@ -55,6 +55,7 @@ let vennMotionLabLastTime = 0;
 let vennMotionLabDirection = 1;
 let comparisonTutorialSequence = 0;
 let lastSubmitTouchTime = 0;
+let finishSortRotation = null;
 
 function init() {
   document.documentElement.classList.toggle("visual-relation-icons", USE_VISUAL_RELATION_ICONS);
@@ -82,6 +83,9 @@ function init() {
   }
 
   els.backButton.addEventListener("click", () => showSetup());
+  document.querySelector("#sortRotateButton")?.addEventListener("click", event => {
+    rotateSortLayout(event.currentTarget);
+  });
   els.featureMissionButton.addEventListener("click", () => chooseFeatureMission());
   els.similarityMissionButton.addEventListener("click", () => startSimilarityMission());
   els.orderingMissionButton.addEventListener("click", () => startOrderingMission(true));
@@ -136,6 +140,77 @@ function init() {
     event.preventDefault();
     validateCurrentPhase();
   });
+}
+
+function rotateSortLayout(button) {
+  if (state.phase !== "sorting" || state.smileyDrags.size || state.dragging || finishSortRotation) return;
+  const table = els.sortTable;
+  const cells = [...table.children];
+  const items = cells.flatMap(cell => [...cell.children]);
+  const nodes = [table, ...cells, ...items];
+  const before = new Map(nodes.map(node => [node, node.getBoundingClientRect()]));
+  const horizontal = table.classList.toggle("is-horizontal");
+  button.setAttribute("aria-pressed", String(horizontal));
+  button.title = horizontal ? "Switch to columns" : "Switch to rows";
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const after = new Map(nodes.map(node => [node, node.getBoundingClientRect()]));
+  const styles = new Map(nodes.map(node => [node, node.getAttribute("style")]));
+  // Freeze content at its final local coordinates so resizing the boxes does not
+  // stretch faces or make flex items jump between lines during the transition.
+  const itemLayouts = items.map(node => ({
+    node, left: node.offsetLeft, top: node.offsetTop,
+    width: getComputedStyle(node).width, height: getComputedStyle(node).height
+  }));
+  const timing = { duration: 2200, easing: "cubic-bezier(0.45, 0, 0.2, 1)", fill: "both" };
+  const animations = [];
+  const animate = (node, from, to) => animations.push(node.animate([from, to], timing));
+  const oldInert = els.workPanel.inert;
+  els.workPanel.inert = true;
+  button.disabled = true;
+  let finished = false;
+  const cleanup = () => {
+    if (finished) return;
+    finished = true;
+    animations.forEach(animation => animation.cancel());
+    styles.forEach((style, node) => {
+      if (style === null) node.removeAttribute("style");
+      else node.setAttribute("style", style);
+    });
+    els.workPanel.inert = oldInert;
+    button.disabled = false;
+    window.removeEventListener("resize", cleanup);
+    finishSortRotation = null;
+  };
+  finishSortRotation = cleanup;
+  window.addEventListener("resize", cleanup, { once: true });
+  try {
+    table.style.height = `${after.get(table).height}px`;
+    animate(table, { height: `${before.get(table).height}px` }, { height: table.style.height });
+    for (const cell of cells) {
+      const rect = after.get(cell);
+      const old = before.get(cell);
+      Object.assign(cell.style, {
+        position: "absolute", margin: "0", minHeight: "0",
+        left: `${rect.left - after.get(table).left}px`, top: `${rect.top - after.get(table).top}px`,
+        width: `${rect.width}px`, height: `${rect.height}px`
+      });
+      animate(cell, {
+        translate: `${old.left - rect.left}px ${old.top - rect.top}px`,
+        width: `${old.width}px`, height: `${old.height}px`
+      }, { translate: "0px 0px", width: `${rect.width}px`, height: `${rect.height}px` });
+    }
+    for (const { node, left, top, width, height } of itemLayouts) {
+      const parent = node.parentElement;
+      const old = before.get(node), rect = after.get(node);
+      const oldParent = before.get(parent), parentRect = after.get(parent);
+      Object.assign(node.style, { position: "absolute", left: `${left}px`, top: `${top}px`, width, height, margin: "0" });
+      animate(node, { translate: `${old.left - rect.left - oldParent.left + parentRect.left}px ${old.top - rect.top - oldParent.top + parentRect.top}px` }, { translate: "0px 0px" });
+    }
+    Promise.all(animations.map(animation => animation.finished)).then(cleanup, cleanup);
+  } catch {
+    cleanup();
+  }
 }
 
 function setupSettingsMenu() {
@@ -1937,6 +2012,7 @@ function startImplicitMission(clearPendingTimers = true, count = getDefaultSmile
 }
 
 function showSetup() {
+  finishSortRotation?.();
   rememberCurrentRoom();
   clearCycleTimers();
   closeCountCheckDialog();
@@ -3589,6 +3665,7 @@ function getDropTarget(x, y) {
 }
 
 function validateCurrentPhase(skipCountOffer = false) {
+  if (finishSortRotation) return;
   if (els.submitSortButton.disabled) return;
   if (isCelebrating()) return;
   const validateOrganizationFirst = shouldValidateCompletedOrganizationFirst();

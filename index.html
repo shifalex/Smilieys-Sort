@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=describe-icons-v287-20260910">
+    <link rel="stylesheet" href="styles.css?v=sort-morph-v289-20260915">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -23,6 +23,9 @@
           <h1 id="screenTitle">Smileys Sorting Game</h1>
         </div>
         <div class="top-actions">
+          <button class="icon-button sort-rotate-button" type="button" id="sortRotateButton" aria-label="Horizontal sorting layout" aria-pressed="false" title="Switch to rows">
+            <span aria-hidden="true">↻</span>
+          </button>
           <div class="progress hidden" id="progressText"></div>
           <div class="settings-menu" id="settingsMenu">
             <button class="settings-button" type="button" id="settingsButton" aria-label="Settings" aria-expanded="false" aria-controls="settingsPanel">
@@ -562,6 +565,6 @@
         document.body.append(notice);
       }
     </script>
-    <script type="module" src="app.js?v=describe-icons-v287-20260910"></script>
+    <script type="module" src="app.js?v=sort-morph-v289-20260915"></script>
   </body>
 </html>

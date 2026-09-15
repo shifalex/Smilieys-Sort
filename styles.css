@@ -1314,11 +1314,49 @@ h2 {
 }
 
 .sort-table {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: auto minmax(190px, 28vh);
   gap: 10px;
   margin-top: 14px;
+}
+
+.sort-rotate-button {
+  display: none;
+}
+
+.sort-table > .column-head {
+  position: relative;
+}
+
+.app:has(.work-panel:not(.hidden) .sort-table:not(.hidden)) .sort-rotate-button {
+  display: inline-grid;
+  place-items: center;
+}
+
+.sort-rotate-button[aria-pressed="true"] {
+  background: var(--blue);
+  color: #fff;
+}
+
+.sort-table.is-horizontal {
+  grid-template-columns: clamp(64px, 10vw, 100px) minmax(0, 1fr);
+  grid-template-rows: repeat(2, minmax(120px, auto));
+}
+
+.sort-table.is-horizontal #withHeader { grid-area: 1 / 1; }
+.sort-table.is-horizontal #withZone { grid-area: 1 / 2; }
+.sort-table.is-horizontal #withoutHeader { grid-area: 2 / 1; }
+.sort-table.is-horizontal #withoutZone { grid-area: 2 / 2; }
+
+.sort-table.is-horizontal .column-head {
+  border-radius: 8px 0 0 8px;
+}
+
+.sort-table.is-horizontal .drop-zone {
+  min-height: 120px;
+  border-radius: 0 8px 8px 0;
 }
 
 .ordering-panel {
