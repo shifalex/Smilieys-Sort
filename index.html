@@ -10,7 +10,7 @@
     <title>Smileys Sorting Game</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-180.png">
-    <link rel="stylesheet" href="styles.css?v=sort-morph-v289-20260915">
+    <link rel="stylesheet" href="styles.css?v=sort-floating-control-v300-20260915">
   </head>
   <body>
     <main class="app" aria-live="polite">
@@ -23,9 +23,6 @@
           <h1 id="screenTitle">Smileys Sorting Game</h1>
         </div>
         <div class="top-actions">
-          <button class="icon-button sort-rotate-button" type="button" id="sortRotateButton" aria-label="Horizontal sorting layout" aria-pressed="false" title="Switch to rows">
-            <span aria-hidden="true">↻</span>
-          </button>
           <div class="progress hidden" id="progressText"></div>
           <div class="settings-menu" id="settingsMenu">
             <button class="settings-button" type="button" id="settingsButton" aria-label="Settings" aria-expanded="false" aria-controls="settingsPanel">
@@ -236,10 +233,22 @@
         </div>
 
         <div class="sort-table" id="sortTable">
-          <div class="column-head with-feature" id="withHeader" aria-label="With the feature"></div>
-          <div class="column-head without-feature" id="withoutHeader" aria-label="Without the feature"></div>
-          <div class="drop-zone" id="withZone" data-zone="with" aria-label="Smileys with the feature"></div>
-          <div class="drop-zone" id="withoutZone" data-zone="without" aria-label="Smileys without the feature"></div>
+          <button class="primary-button sort-rotate-button" type="button" id="sortRotateButton" title="Switch to rows">
+            <span class="sort-rotate-symbol" aria-hidden="true">↺</span>
+            <span class="sort-rotate-label visually-hidden">Switch to rows</span>
+          </button>
+          <div class="sort-group-slot">
+            <div class="sort-group">
+              <div class="column-head with-feature" id="withHeader" aria-label="With the feature"></div>
+              <div class="drop-zone" id="withZone" data-zone="with" aria-label="Smileys with the feature"></div>
+            </div>
+          </div>
+          <div class="sort-group-slot">
+            <div class="sort-group">
+              <div class="column-head without-feature" id="withoutHeader" aria-label="Without the feature"></div>
+              <div class="drop-zone" id="withoutZone" data-zone="without" aria-label="Smileys without the feature"></div>
+            </div>
+          </div>
         </div>
 
         <div class="similarity-panel hidden" id="similarityPanel">
@@ -565,6 +574,6 @@
         document.body.append(notice);
       }
     </script>
-    <script type="module" src="app.js?v=sort-morph-v289-20260915"></script>
+    <script type="module" src="app.js?v=sort-floating-control-v300-20260915"></script>
   </body>
 </html>

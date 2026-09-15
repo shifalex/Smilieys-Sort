@@ -45,6 +45,7 @@ const CATEGORY_WIGGLE_MS = 800;
 const USE_VISUAL_RELATION_ICONS = false;
 const MUSIC_NOTES = [261.63, 329.63, 392, 329.63, 293.66, 349.23, 440, 349.23];
 let audioContext = null;
+let stopSortRotationSound = null;
 let musicTimer = null;
 let musicStep = 0;
 let vennLightingSequence = 0;
@@ -114,6 +115,10 @@ function init() {
   els.creatorResetButton.addEventListener("click", () => resetCreatorCurrent());
   els.implicitAHead.addEventListener("click", () => openImplicitChoiceList(0));
   els.implicitBHead.addEventListener("click", () => openImplicitChoiceList(1));
+  window.addEventListener("resize", () => {
+    finishSortRotation?.();
+    sizeSortGroups();
+  });
   setupVennLighting();
   setupRelationDisplayMode();
   setupSettingsMenu();
@@ -142,29 +147,75 @@ function init() {
   });
 }
 
-function rotateSortLayout(button) {
-  if (state.phase !== "sorting" || state.smileyDrags.size || state.dragging || finishSortRotation) return;
+function sizeSortGroups() {
   const table = els.sortTable;
-  const cells = [...table.children];
-  const items = cells.flatMap(cell => [...cell.children]);
-  const nodes = [table, ...cells, ...items];
-  const before = new Map(nodes.map(node => [node, node.getBoundingClientRect()]));
-  const horizontal = table.classList.toggle("is-horizontal");
-  button.setAttribute("aria-pressed", String(horizontal));
-  button.title = horizontal ? "Switch to columns" : "Switch to rows";
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (table.classList.contains("hidden") || els.workPanel.classList.contains("hidden")) return;
+  const horizontal = table.classList.contains("is-horizontal");
+  table.classList.remove("is-horizontal", "has-group-sizes");
+  const tableRect = table.getBoundingClientRect();
+  const rowGap = parseFloat(getComputedStyle(table).rowGap) || 0;
+  const slots = [...table.querySelectorAll(".sort-group-slot")];
+  const sizes = slots.map(slot => {
+    const group = slot.firstElementChild;
+    const rect = group.getBoundingClientRect();
+    return { slot, width: rect.width, height: rect.height,
+      header: group.firstElementChild.offsetHeight };
+  });
+  sizes.forEach(({ slot, width, height, header }) => {
+    slot.dataset.originalWidth = width;
+    slot.dataset.originalHeight = height;
+    // After a quarter-turn, local width becomes row height and local height
+    // becomes row width. Both rows together occupy the original table bounds.
+    slot.dataset.turnedWidth = (tableRect.height - rowGap * (slots.length - 1)) / slots.length;
+    slot.dataset.turnedHeight = tableRect.width;
+    slot.style.setProperty("--group-header", header + "px");
+  });
+  table.style.setProperty("--sort-table-height", tableRect.height + "px");
+  setSortGroupDimensions(horizontal);
+  table.classList.add("has-group-sizes");
+  table.classList.toggle("is-horizontal", horizontal);
+}
 
-  const after = new Map(nodes.map(node => [node, node.getBoundingClientRect()]));
-  const styles = new Map(nodes.map(node => [node, node.getAttribute("style")]));
-  // Freeze content at its final local coordinates so resizing the boxes does not
-  // stretch faces or make flex items jump between lines during the transition.
-  const itemLayouts = items.map(node => ({
-    node, left: node.offsetLeft, top: node.offsetTop,
-    width: getComputedStyle(node).width, height: getComputedStyle(node).height
-  }));
-  const timing = { duration: 2200, easing: "cubic-bezier(0.45, 0, 0.2, 1)", fill: "both" };
+function setSortGroupDimensions(horizontal, dimension = null) {
+  els.sortTable.querySelectorAll(".sort-group-slot").forEach(slot => {
+    if (dimension !== "height") {
+      slot.style.setProperty("--group-width", slot.dataset[horizontal ? "turnedWidth" : "originalWidth"] + "px");
+    }
+    if (dimension !== "width") {
+      slot.style.setProperty("--group-height", slot.dataset[horizontal ? "turnedHeight" : "originalHeight"] + "px");
+    }
+  });
+}
+
+async function rotateSortLayout(button) {
+  if (state.phase !== "sorting" || state.smileyDrags.size || state.dragging || finishSortRotation) return;
+  // Unlock audio during the click, before the resize animation yields.
+  if (state.soundEnabled) {
+    try { getAudioContext()?.resume().catch(() => {}); } catch {}
+  }
+  const table = els.sortTable;
+  if (!table.classList.contains("has-group-sizes")) sizeSortGroups();
+  const groups = [...table.querySelectorAll(".sort-group")];
+  const horizontal = !table.classList.contains("is-horizontal");
+  const updateButton = () => {
+    const label = horizontal ? "Switch to columns" : "Switch to rows";
+    button.querySelector(".sort-rotate-label").textContent = label;
+    button.querySelector(".sort-rotate-symbol").textContent = horizontal ? "↻" : "↺";
+    button.title = label;
+  };
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    setSortGroupDimensions(horizontal);
+    table.classList.toggle("is-horizontal", horizontal);
+    updateButton();
+    playSortRotationSound(horizontal, 0.3);
+    return;
+  }
+
+  const fromAngle = horizontal ? 0 : -90;
+  const toAngle = horizontal ? -90 : 0;
   const animations = [];
-  const animate = (node, from, to) => animations.push(node.animate([from, to], timing));
+  const timing = { duration: 2200, fill: "both" };
+  const easing = "cubic-bezier(0.45, 0, 0.2, 1)";
   const oldInert = els.workPanel.inert;
   els.workPanel.inert = true;
   button.disabled = true;
@@ -173,41 +224,65 @@ function rotateSortLayout(button) {
     if (finished) return;
     finished = true;
     animations.forEach(animation => animation.cancel());
-    styles.forEach((style, node) => {
-      if (style === null) node.removeAttribute("style");
-      else node.setAttribute("style", style);
-    });
+    stopSortRotationSound?.();
+    setSortGroupDimensions(horizontal);
+    table.classList.toggle("is-horizontal", horizontal);
     els.workPanel.inert = oldInert;
     button.disabled = false;
-    window.removeEventListener("resize", cleanup);
+    updateButton();
     finishSortRotation = null;
   };
   finishSortRotation = cleanup;
-  window.addEventListener("resize", cleanup, { once: true });
   try {
-    table.style.height = `${after.get(table).height}px`;
-    animate(table, { height: `${before.get(table).height}px` }, { height: table.style.height });
-    for (const cell of cells) {
-      const rect = after.get(cell);
-      const old = before.get(cell);
-      Object.assign(cell.style, {
-        position: "absolute", margin: "0", minHeight: "0",
-        left: `${rect.left - after.get(table).left}px`, top: `${rect.top - after.get(table).top}px`,
-        width: `${rect.width}px`, height: `${rect.height}px`
+    // Reverse the resizing order when returning from horizontal to vertical.
+    const resizeNodes = groups.flatMap(group => [group.parentElement, group]);
+    const boxStyle = node => {
+      const style = getComputedStyle(node);
+      return { width: style.width, height: style.height, left: style.left, top: style.top };
+    };
+    const resizeDimension = async dimension => {
+      const oldBoxes = resizeNodes.map(boxStyle);
+      setSortGroupDimensions(horizontal, dimension);
+      const newBoxes = resizeNodes.map(boxStyle);
+      const stage = resizeNodes.map((node, index) => node.animate([
+        oldBoxes[index], newBoxes[index]
+      ], { duration: 1100, endDelay: 180, easing, fill: "both" }));
+      animations.push(...stage);
+      await Promise.all(stage.map(animation => animation.finished));
+      stage.forEach(animation => animation.cancel());
+    };
+    await resizeDimension(horizontal ? "width" : "height");
+    if (finished) return;
+    const rotationStart = animations.length;
+    const before = groups.map(group => group.getBoundingClientRect());
+    table.classList.toggle("is-horizontal", horizontal);
+    const after = groups.map(group => group.getBoundingClientRect());
+    playSortRotationSound(horizontal, timing.duration / 1000);
+    groups.forEach((group, index) => {
+      // A rigid group: its header, gap and drop zone keep their dimensions.
+      // Rotate and translate the rigid group together in one continuous move.
+      const old = before[index], rect = after[index];
+      const dx = old.left + old.width / 2 - rect.left - rect.width / 2;
+      const dy = old.top + old.height / 2 - rect.top - rect.height / 2;
+      const pose = angle => "translate(" + dx + "px, " + dy + "px) rotate(" + angle + "deg)";
+      animations.push(group.animate([
+        { transform: pose(fromAngle), offset: 0, easing },
+        { transform: "translate(0px, 0px) rotate(" + toAngle + "deg)", offset: 1 }
+      ], timing));
+      // Keep the faces and category symbols upright inside their rigid group.
+      group.querySelectorAll(".feature-icon, .smiley").forEach(item => {
+        animations.push(item.animate([
+          { rotate: -fromAngle + "deg", offset: 0, easing },
+          { rotate: -toAngle + "deg", offset: 1 }
+        ], timing));
       });
-      animate(cell, {
-        translate: `${old.left - rect.left}px ${old.top - rect.top}px`,
-        width: `${old.width}px`, height: `${old.height}px`
-      }, { translate: "0px 0px", width: `${rect.width}px`, height: `${rect.height}px` });
-    }
-    for (const { node, left, top, width, height } of itemLayouts) {
-      const parent = node.parentElement;
-      const old = before.get(node), rect = after.get(node);
-      const oldParent = before.get(parent), parentRect = after.get(parent);
-      Object.assign(node.style, { position: "absolute", left: `${left}px`, top: `${top}px`, width, height, margin: "0" });
-      animate(node, { translate: `${old.left - rect.left - oldParent.left + parentRect.left}px ${old.top - rect.top - oldParent.top + parentRect.top}px` }, { translate: "0px 0px" });
-    }
-    Promise.all(animations.map(animation => animation.finished)).then(cleanup, cleanup);
+    });
+    const rotationAnimations = animations.slice(rotationStart);
+    await Promise.all(rotationAnimations.map(animation => animation.finished));
+    if (finished) return;
+    rotationAnimations.forEach(animation => animation.cancel());
+    await resizeDimension(horizontal ? "height" : "width");
+    cleanup();
   } catch {
     cleanup();
   }
@@ -258,6 +333,7 @@ function setupSettingsMenu() {
   });
   els.soundSetting.addEventListener("click", () => {
     state.soundEnabled = !state.soundEnabled;
+    if (!state.soundEnabled) stopSortRotationSound?.();
     syncSettingsControls();
   });
   els.musicSetting.addEventListener("click", () => {
@@ -446,6 +522,57 @@ function getAudioContext() {
   if (!AudioContextClass) return null;
   audioContext = new AudioContextClass();
   return audioContext;
+}
+
+function playSortRotationSound(horizontal, duration) {
+  stopSortRotationSound?.();
+  if (!state.soundEnabled) return;
+  try {
+    const context = getAudioContext();
+    if (!context || context.state !== "running") return;
+    const now = context.currentTime;
+    const voice = context.createOscillator();
+    const wobble = context.createOscillator();
+    const wobbleDepth = context.createGain();
+    const volume = context.createGain();
+    // A soft, rubbery whistle: a playful melodic swoop with a small wobble.
+    const notes = horizontal ? [262, 392, 330, 523, 440, 659] : [659, 440, 523, 330, 392, 262];
+    voice.type = "sine";
+    voice.frequency.setValueAtTime(notes[0], now);
+    notes.slice(1).forEach((note, index) => {
+      voice.frequency.exponentialRampToValueAtTime(note, now + duration * (index + 1) / 5);
+    });
+    wobble.frequency.setValueAtTime(7, now);
+    wobbleDepth.gain.setValueAtTime(9, now);
+    wobble.connect(wobbleDepth);
+    wobbleDepth.connect(voice.frequency);
+    volume.gain.setValueAtTime(0.0001, now);
+    volume.gain.exponentialRampToValueAtTime(0.045, now + 0.04);
+    volume.gain.exponentialRampToValueAtTime(0.025, now + duration * 0.65);
+    volume.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    voice.connect(volume);
+    volume.connect(context.destination);
+    let stopped = false;
+    const stop = () => {
+      if (stopped) return;
+      stopped = true;
+      voice.stop();
+      wobble.stop();
+      voice.disconnect();
+      wobble.disconnect();
+      wobbleDepth.disconnect();
+      volume.disconnect();
+      if (stopSortRotationSound === stop) stopSortRotationSound = null;
+    };
+    voice.onended = stop;
+    voice.start(now);
+    wobble.start(now);
+    voice.stop(now + duration + 0.02);
+    wobble.stop(now + duration + 0.02);
+    stopSortRotationSound = stop;
+  } catch {
+    // Audio support must never interrupt the game or its animation.
+  }
 }
 
 function playInteractionSound(type) {
@@ -2146,6 +2273,7 @@ function startFeature(previousRects = null) {
   unlockSubmitButton();
   resetCountChallenge();
   renderSmileys();
+  if (els.sortTable.classList.contains("has-group-sizes")) sizeSortGroups();
   if (previousRects) {
     animateSmileysFrom(previousRects);
   }
